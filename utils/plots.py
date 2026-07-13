@@ -88,6 +88,66 @@ def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
     plt.close(fig)
 
 
+def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
+                range_max_km: float, title: str, out_path: str) -> None:
+    """B-scope (range vs azimuth) of all detections in scans
+    [k0, k0+window_scans) -- the radar's native measurement frame."""
+    win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
+                                    ("clutter", C_CLUTTER, 6, 0.85, 4),
+                                    ("target", C_TARGET, 5, 0.9, 5)):
+        d = win[win["source"] == src]
+        if d.empty:
+            continue
+        ax.scatter(d["azimuth_deg"], d["range_m"] / 1000, s=s, color=color,
+                   alpha=alpha, lw=0, zorder=z, label=f"{src} ({len(d):,})")
+    ax.set_xlim(0, 360); ax.set_ylim(0, range_max_km * 1.02)
+    ax.set_xticks(range(0, 361, 45))
+    ax.set_xlabel("azimuth (deg)"); ax.set_ylabel("range (km)")
+    leg = ax.legend(loc="upper right", frameon=False, fontsize=9, markerscale=3)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    ax.set_title(title, color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
+             scan_period_s: float, range_max_km: float, title: str,
+             out_path: str) -> None:
+    """RTI (range vs time, azimuth collapsed) over scans [k0, k0+window_scans).
+
+    The classic discrimination view: moving targets slope with their range
+    rate, stationary clutter draws dead-flat horizontal lines, and noise
+    speckles uniformly.
+    """
+    win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
+    t_start = scan_t0 + k0 * scan_period_s
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
+                                    ("clutter", C_CLUTTER, 4, 0.8, 4),
+                                    ("target", C_TARGET, 4, 0.9, 5)):
+        d = win[win["source"] == src]
+        if d.empty:
+            continue
+        ax.scatter((d["t"] - t_start) / 60.0, d["range_m"] / 1000, s=s, color=color,
+                   alpha=alpha, lw=0, zorder=z, label=f"{src} ({len(d):,})")
+    ax.set_xlim(0, window_scans * scan_period_s / 60.0)
+    ax.set_ylim(0, range_max_km * 1.02)
+    ax.set_xlabel("time (min)"); ax.set_ylabel("range (km)")
+    leg = ax.legend(loc="upper right", frameon=False, fontsize=9, markerscale=3)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    ax.set_title(title, color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def longest_miss_run(detected: np.ndarray) -> int:
     """Length of the longest run of consecutive False values."""
     x = (~detected.astype(bool)).astype(int)

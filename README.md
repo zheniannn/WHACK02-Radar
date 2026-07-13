@@ -182,7 +182,11 @@ one dataset supports a full ROC sweep.
   `range_m`, `azimuth_deg`, `snr_db`, `source` (`target`/`noise`/`clutter`),
   plus truth linkage for evaluation only.
 - `measurements_summary.csv` — one row per day.
-- Figures in `<data root>/plot/`.
+- Figures in `<data root>/plot/`: every stage emits a PPI view of the same
+  15-minute window; stages 7 and 9 additionally emit a **B-scope**
+  (range vs azimuth, the radar's native frame) and an **RTI** (range vs
+  time over 60 min, where targets slope with range rate, clutter draws
+  flat lines, and noise speckles); stage 9 adds the max-range analysis.
 
 ## Extending
 

@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_stage_dir, get_trajectories_dir
 from utils.measurements import MeasurementConfig, run_days
-from utils.plots import densest_window, plot_detection_window
+from utils.plots import densest_window, plot_bscope, plot_detection_window, plot_rti
 from utils.scenario import Scenario
 
 PLOT_DAY_INDEX = 0
@@ -93,13 +93,25 @@ def main() -> None:
     print(f"  measurement noise sigmas reproduced ({r_std:.1f} m, {az_std:.3f} deg): OK")
 
     date, _ = day_files[PLOT_DAY_INDEX]
+    dets0 = results[PLOT_DAY_INDEX]["_dets"]
+    scan_t0, _ = scan_grid[date]
     k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
     plot_detection_window(
-        results[PLOT_DAY_INDEX]["_dets"], k0, 90, sc.range_max_m / 1000,
+        dets0, k0, 90, sc.range_max_m / 1000,
         f"Stage 7 — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, 15 min)\n"
         f"same window as stage 6; Pd {pd_expected:.2f} uniformly, plus false alarms and clutter",
         os.path.join(get_plot_dir(), f"stage07_trajectories_{date}.png"))
-    print(f"plot written to: {os.path.join(get_plot_dir(), f'stage07_trajectories_{date}.png')}")
+    plot_bscope(
+        dets0, k0, 90, sc.range_max_m / 1000,
+        f"Stage 7 B-scope — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, 15 min)\n"
+        "the radar's native frame: targets drift, clutter pins to a fixed cell",
+        os.path.join(get_plot_dir(), f"stage07_bscope_{date}.png"))
+    plot_rti(
+        dets0, k0, 360, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
+        f"Stage 7 RTI — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, 60 min)\n"
+        "targets slope with range rate; clutter draws flat lines; noise speckles",
+        os.path.join(get_plot_dir(), f"stage07_rti_{date}.png"))
+    print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n07_trajectories_cluttered completed successfully.")
 

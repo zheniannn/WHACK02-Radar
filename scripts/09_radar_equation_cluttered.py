@@ -27,7 +27,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_stage_dir, get_trajectories_dir
 from utils.measurements import MeasurementConfig, run_days
-from utils.plots import densest_window, per_track_drop_table, plot_detection_window, plot_max_range
+from utils.plots import (
+    densest_window,
+    per_track_drop_table,
+    plot_bscope,
+    plot_detection_window,
+    plot_max_range,
+    plot_rti,
+)
 from utils.scenario import Scenario
 
 PLOT_DAY_INDEX = 0
@@ -146,15 +153,27 @@ def main() -> None:
 
     # --- Plots ---
     date, _ = day_files[PLOT_DAY_INDEX]
+    dets0 = results[PLOT_DAY_INDEX]["_dets"]
+    scan_t0, _ = scan_grid[date]
     k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
     plot_detection_window(
-        results[PLOT_DAY_INDEX]["_dets"], k0, 90, sc.range_max_m / 1000,
+        dets0, k0, 90, sc.range_max_m / 1000,
         f"Stage 9 — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
         "same window as stages 6-8; distant tracks fade and contamination is on",
         os.path.join(get_plot_dir(), f"stage09_trajectories_{date}.png"))
+    plot_bscope(
+        dets0, k0, 90, sc.range_max_m / 1000,
+        f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
+        "the radar's native frame: targets drift, clutter pins to a fixed cell",
+        os.path.join(get_plot_dir(), f"stage09_bscope_{date}.png"))
+    plot_rti(
+        dets0, k0, 360, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
+        f"Stage 9 RTI — radar-equation SNR with clutter and noise ({date}, 60 min)\n"
+        "targets slope and fade with range; clutter draws flat lines; noise speckles",
+        os.path.join(get_plot_dir(), f"stage09_rti_{date}.png"))
     plot_max_range(truth, track_table, sc, r50_emp, drop50, GAP_SCANS,
                    os.path.join(get_plot_dir(), "stage09_max_range.png"))
-    print(f"plots written to: {get_plot_dir()}")
+    print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI, max-range)")
 
     print("\n09_radar_equation_cluttered completed successfully.")
 
