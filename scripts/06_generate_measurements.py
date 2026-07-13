@@ -60,8 +60,7 @@ def _fail(message: str) -> None:
 
 def _check_false_alarm_rate(day_results, sc: Scenario) -> None:
     """Empirical FA/scan must match n_cells * Pfa(floor) within 5 sigma."""
-    tau_lin = 10 ** (sc.threshold_min_db / 10)
-    expected = sc.n_cells() * np.exp(-tau_lin)
+    expected = sc.expected_false_alarms_per_scan()
     for r in day_results:
         n_scans = r["n_scans"]
         tol = 5.0 * np.sqrt(expected / n_scans)   # Poisson std of the per-scan mean
@@ -72,8 +71,6 @@ def _check_false_alarm_rate(day_results, sc: Scenario) -> None:
 
 def _check_pd_vs_theory(day_results, sc: Scenario) -> None:
     """Empirical Pd in three range bins must track the Swerling-1 closed form."""
-    tau_lin = 10 ** (sc.threshold_min_db / 10)
-    snr_ref_lin = 10 ** (sc.snr_ref_db / 10)
     truth = pd.concat([r["_truth"] for r in day_results], ignore_index=True)
     print("  Pd vs range (empirical | theory):")
     edges = np.linspace(sc.range_min_m, sc.range_max_m, 4)
@@ -82,8 +79,7 @@ def _check_pd_vs_theory(day_results, sc: Scenario) -> None:
         if len(sel) < 500:
             continue
         pd_emp = sel["detected"].mean()
-        snr_mid = snr_ref_lin * (sc.range_ref_m / sel["true_range_m"].median()) ** 4
-        pd_theory = np.exp(-tau_lin / (1 + snr_mid))
+        pd_theory = float(sc.pd(sel["true_range_m"].median()))
         status = "OK" if abs(pd_emp - pd_theory) < 0.05 else "FAIL"
         print(f"    {lo / 1000:5.0f}-{hi / 1000:5.0f} km: {pd_emp:.3f} | {pd_theory:.3f}  {status}")
         if status == "FAIL":

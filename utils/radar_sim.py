@@ -118,8 +118,7 @@ def process_day(date: str, input_path: str, output_dir: str, sc: Scenario,
     t_hi = df["timestamp"].max() if len(df) else 0.0
     scan_times = np.arange(t_lo, t_hi + sc.scan_period_s, sc.scan_period_s)
 
-    tau_lin = 10.0 ** (sc.threshold_min_db / 10.0)
-    snr_ref_lin = 10.0 ** (sc.snr_ref_db / 10.0)
+    tau_lin = sc.threshold_lin()
 
     truth_frames: List[pd.DataFrame] = []
     det_frames: List[pd.DataFrame] = []
@@ -146,8 +145,8 @@ def process_day(date: str, input_path: str, output_dir: str, sc: Scenario,
 
         idx = np.where(covered)[0]
         r, a, e_deg, th = rng_m[idx], az[idx], el[idx], t_hit[idx]
-        snr_mean_lin = snr_ref_lin * (sc.range_ref_m / r) ** 4     # R^-4, RCS fixed at rcs_ref
-        z = rng.exponential(1.0 + snr_mean_lin)                    # Swerling 1 + noise, per scan
+        snr_mean_lin = sc.snr_mean_lin(r)          # radar equation (see Scenario)
+        z = rng.exponential(1.0 + snr_mean_lin)    # Swerling 1 + noise, per scan
         detected = z >= tau_lin
 
         truth_frames.append(pd.DataFrame({
@@ -170,7 +169,7 @@ def process_day(date: str, input_path: str, output_dir: str, sc: Scenario,
 
     # --- False alarms: Poisson over cells x scans; conditional power is
     # memoryless (z = tau + Exp(1) given z > tau for exponential noise). ---
-    lam_per_scan = sc.n_cells() * np.exp(-tau_lin)
+    lam_per_scan = sc.expected_false_alarms_per_scan()
     n_fa = rng.poisson(lam_per_scan * len(scan_times))
     fa_scan = rng.integers(0, len(scan_times), n_fa)
     fa_az = rng.uniform(0.0, 360.0, n_fa)

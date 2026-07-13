@@ -62,6 +62,31 @@ class Scenario:
         n_az = int(round(360.0 / self.azimuth_beamwidth_deg))
         return n_range * n_az
 
+    # --- Radar physics (the scenario owns the model; stage 6 only applies it) ---
+
+    def threshold_lin(self, threshold_db: float = None) -> float:
+        """CFAR threshold in linear power units (defaults to the recording floor)."""
+        return 10.0 ** ((self.threshold_min_db if threshold_db is None else threshold_db) / 10.0)
+
+    def snr_mean_lin(self, range_m) -> np.ndarray:
+        """Radar equation in calibrated form: mean SNR (linear) at range_m for a
+        rcs_ref_m2 target -- snr_ref at range_ref with R^-4 two-way falloff."""
+        return 10.0 ** (self.snr_ref_db / 10.0) * (self.range_ref_m / np.asarray(range_m, float)) ** 4
+
+    def pfa(self, threshold_db: float = None) -> float:
+        """Per-cell false-alarm probability, square-law detector on exponential
+        noise: Pfa = exp(-tau)."""
+        return float(np.exp(-self.threshold_lin(threshold_db)))
+
+    def pd(self, range_m, threshold_db: float = None) -> np.ndarray:
+        """Swerling-1 detection probability at range_m:
+        Pd = exp(-tau / (1 + snr)) = Pfa^(1/(1+snr))."""
+        return np.exp(-self.threshold_lin(threshold_db) / (1.0 + self.snr_mean_lin(range_m)))
+
+    def expected_false_alarms_per_scan(self, threshold_db: float = None) -> float:
+        """n_cells * Pfa at the given threshold."""
+        return self.n_cells() * self.pfa(threshold_db)
+
     def save(self, path: str) -> None:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:

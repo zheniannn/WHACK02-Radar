@@ -64,9 +64,18 @@ def main() -> None:
     print(f"coverage: {sc.range_min_m / 1000:.0f}-{sc.range_max_m / 1000:.0f} km, "
           f"elevation {sc.elevation_min_deg}-{sc.elevation_max_deg} deg, scan {sc.scan_period_s}s")
     print(f"cells/scan: {sc.n_cells()}, CFAR floor: {sc.threshold_min_db} dB "
-          f"(expected false alarms/scan: {sc.n_cells() * np.exp(-10 ** (sc.threshold_min_db / 10)):.1f})")
+          f"(expected false alarms/scan: {sc.expected_false_alarms_per_scan():.1f})")
     print(f"clutter patches: {len(sc.clutter_patches)}")
-    print(f"scenario written to: {os.path.abspath(output_path)}")
+
+    # Radar equation, evaluated at the scenario's calibration (see Scenario.snr_mean_lin).
+    print(f"\nradar equation ({sc.rcs_ref_m2:g} m^2 target, "
+          f"{sc.snr_ref_db:g} dB @ {sc.range_ref_m / 1000:g} km, R^-4):")
+    print(f"  {'range':>8} | {'mean SNR':>9} | {'Pd @ floor':>10}")
+    for r_km in (20, 40, 60, 80):
+        snr_db = 10 * np.log10(sc.snr_mean_lin(r_km * 1000.0))
+        print(f"  {r_km:>5} km | {snr_db:>6.1f} dB | {float(sc.pd(r_km * 1000.0)):>10.3f}")
+
+    print(f"\nscenario written to: {os.path.abspath(output_path)}")
 
 
 if __name__ == "__main__":
