@@ -57,11 +57,18 @@ def densest_window(crossings_path: str, window_scans: int = 90) -> int:
 
 
 def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
-                          range_max_km: float, title: str, out_path: str) -> None:
-    """PPI scatter of all detections in scans [k0, k0+window_scans)."""
+                          range_max_km: float, title: str, out_path: str,
+                          horizon_km: float = None) -> None:
+    """PPI scatter of all detections in scans [k0, k0+window_scans).
+    horizon_km draws a dotted ring (e.g. a deterministic detection horizon)."""
     win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     _ppi_axes(ax, range_max_km)
+    if horizon_km is not None:
+        ax.add_patch(plt.Circle((0, 0), horizon_km, fill=False, color=INK,
+                                lw=1.2, ls=":", zorder=3))
+        ax.annotate(f"detection horizon {horizon_km:.0f} km",
+                    (0, -horizon_km - 2), color=INK, fontsize=9, ha="center", va="top")
     for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
                                     ("clutter", C_CLUTTER, 5, 0.8, 4),
                                     ("target", C_TARGET, 5, 0.9, 5)):
@@ -107,7 +114,7 @@ def per_track_drop_table(truth_all: pd.DataFrame, min_crossings: int = 30,
 def plot_max_range(truth_all: pd.DataFrame, track_table: pd.DataFrame, sc,
                    r50_emp_km: float, drop50_km: float, gap_scans: int,
                    out_path: str) -> None:
-    """Stage 8's headline figure: Pd vs range and track-drop fraction vs
+    """Stage 9's headline figure: Pd vs range and track-drop fraction vs
     range, with the two derived maximum-range markers."""
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 7.5), sharex=True)
     edges = np.linspace(sc.range_min_m, sc.range_max_m, 17)
@@ -127,7 +134,7 @@ def plot_max_range(truth_all: pd.DataFrame, track_table: pd.DataFrame, sc,
     leg = ax1.legend(frameon=False, fontsize=9, loc="lower left")
     for t in leg.get_texts():
         t.set_color(INK2)
-    ax1.set_title("Stage 8 — maximum range before the radar drops a trajectory", color=INK)
+    ax1.set_title("Stage 9 — maximum range before the radar drops a trajectory", color=INK)
 
     # Track-drop fraction vs range.
     mids, fracs = [], []

@@ -1,4 +1,4 @@
-"""Stage 8: full physics -- SNR from the radar equation (R^-4), with
+"""Stage 9: full physics -- SNR from the radar equation (R^-4), with
 clutter and noise -- and the maximum-range analysis: how far out can the
 radar still hold an aircraft trajectory before dropping it?
 
@@ -9,8 +9,8 @@ Two range limits are reported:
     most trackers coast only a couple of scans before deleting a track).
 
 Usage:
-    python scripts/08_radar_equation_range.py
-    python scripts/08_radar_equation_range.py --seed 7 --output-dir mc_run_7/
+    python scripts/09_radar_equation_cluttered.py
+    python scripts/09_radar_equation_cluttered.py --seed 7 --output-dir mc_run_7/
 """
 
 import argparse
@@ -36,18 +36,18 @@ MIN_CROSSINGS = 30     # only tracks with >= this many crossings enter the drop 
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Stage 8: radar-equation SNR, max-range analysis.")
+    parser = argparse.ArgumentParser(description="Stage 9: radar-equation SNR with clutter and noise, max-range analysis.")
     parser.add_argument("--scenario", type=str, default=None)
     parser.add_argument("--input-dir", type=str, default=None)
     parser.add_argument("--output-dir", type=str, default=None,
-                        help="Output dir (default: active/radar/stage08).")
+                        help="Output dir (default: active/radar/stage09).")
     parser.add_argument("--seed", type=int, default=None,
                         help="Override the scenario seed (Monte-Carlo repetitions).")
     return parser.parse_args()
 
 
 def _fail(message: str) -> None:
-    raise ValueError(f"Stage 08 validation failed: {message}")
+    raise ValueError(f"Stage 09 validation failed: {message}")
 
 
 def _crossing_50(x_km: np.ndarray, y: np.ndarray, direction: str = "down") -> float:
@@ -67,7 +67,7 @@ def main() -> None:
     sc = Scenario.load(args.scenario or get_scenario_path())
     if args.seed is not None:
         sc.seed = args.seed
-    output_dir = args.output_dir or get_stage_dir(8)
+    output_dir = args.output_dir or get_stage_dir(9)
 
     day_files, scan_grid = ensure_beam_crossings(
         args.input_dir or get_trajectories_dir(), get_beam_crossings_dir(), sc)
@@ -149,14 +149,14 @@ def main() -> None:
     k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
     plot_detection_window(
         results[PLOT_DAY_INDEX]["_dets"], k0, 90, sc.range_max_m / 1000,
-        f"Stage 8 — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
-        "same window as stages 6-7; distant tracks fade as the R$^{-4}$ law bites",
-        os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"))
+        f"Stage 9 — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
+        "same window as stages 6-8; distant tracks fade and contamination is on",
+        os.path.join(get_plot_dir(), f"stage09_trajectories_{date}.png"))
     plot_max_range(truth, track_table, sc, r50_emp, drop50, GAP_SCANS,
-                   os.path.join(get_plot_dir(), "stage08_max_range.png"))
+                   os.path.join(get_plot_dir(), "stage09_max_range.png"))
     print(f"plots written to: {get_plot_dir()}")
 
-    print("\n08_radar_equation_range completed successfully.")
+    print("\n09_radar_equation_cluttered completed successfully.")
 
 
 if __name__ == "__main__":
