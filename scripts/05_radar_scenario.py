@@ -16,8 +16,9 @@ import numpy as np
 # Make utils/ importable regardless of the caller's working directory.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.io import get_scenario_path, get_trajectories_dir
-from utils.radar_sim import discover_input_files
+from utils.beam_crossings import discover_input_files
+from utils.io import get_plot_dir, get_scenario_path, get_trajectories_dir
+from utils.plots import plot_ascope
 from utils.scenario import Scenario, generate_clutter_patches, select_site
 
 
@@ -75,7 +76,10 @@ def main() -> None:
         snr_db = 10 * np.log10(sc.snr_mean_lin(r_km * 1000.0))
         print(f"  {r_km:>5} km | {snr_db:>6.1f} dB | {float(sc.pd(r_km * 1000.0)):>10.3f}")
 
-    print(f"\nscenario written to: {os.path.abspath(output_path)}")
+    ascope_path = os.path.join(get_plot_dir(), "stage05_ascope.png")
+    plot_ascope(sc, ascope_path)
+    print(f"\nA-scope illustration written to: {ascope_path}")
+    print(f"scenario written to: {os.path.abspath(output_path)}")
 
 
 if __name__ == "__main__":

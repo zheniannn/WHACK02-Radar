@@ -97,6 +97,11 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   SNR 12 dB, within 40 km.
 - Everything is frozen into `scenario.json` with the RNG seed; all later
   stages are reproducible functions of that file.
+- Emits an **A-scope** figure (`stage05_ascope.png`): echo amplitude vs
+  range along one synthesized beam, with the noise floor, the 8 dB CFAR
+  floor, a conventional ~13 dB threshold, a near and a marginal far target
+  (at mean echo power), and a clutter spike — the picture in which
+  "lowering the CFAR threshold in dB" is defined.
 
 CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 
