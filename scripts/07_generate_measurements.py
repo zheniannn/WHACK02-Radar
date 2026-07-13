@@ -1,15 +1,18 @@
-"""Stage 6: generate simulated 2D radar measurements (range, azimuth) from
-the stage-4 ground-truth trajectories, per the frozen scenario.json.
+"""Stage 7: the stochastic measurement layer -- Swerling-1 detection draws,
+measurement noise, false alarms, and clutter -- applied to stage 6's
+deterministic beam-crossing truth.
 
-Outputs per day: radar_truth_<date>.csv (every in-coverage beam crossing of
-every trajectory, detected or not) and radar_detections_<date>.csv (what a
+Outputs per day: radar_truth_<date>.csv (every beam crossing with its
+measured SNR and detection outcome) and radar_detections_<date>.csv (what a
 tracker sees: targets + false alarms + clutter, with truth linkage).
 Measurements are recorded down to the scenario's CFAR floor, so any higher
 threshold can be applied post-hoc by filtering on snr_db.
 
+Re-run with --seed for Monte-Carlo repetitions -- stage 6 is not recomputed.
+
 Usage:
-    python scripts/06_generate_measurements.py
-    python scripts/06_generate_measurements.py --scenario custom.json
+    python scripts/07_generate_measurements.py
+    python scripts/07_generate_measurements.py --seed 7 --output-dir mc_run_7/
 """
 
 import argparse
@@ -23,16 +26,17 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.io import (
+    get_beam_crossings_dir,
+    get_beam_crossings_summary_path,
     get_measurements_dir,
     get_measurements_summary_path,
     get_scenario_path,
-    get_trajectories_dir,
 )
-from utils.radar_sim import discover_input_files, process_day
+from utils.measurements import discover_input_files, load_scan_grid, process_day
 from utils.scenario import Scenario
 
 SUMMARY_COLUMNS = [
-    "date", "n_scans", "trajectories_in_day", "trajectories_in_coverage",
+    "date", "n_scans", "trajectories_in_coverage",
     "opportunities", "mean_pd_at_floor",
     "det_target", "det_noise", "det_clutter", "fa_per_scan",
     "truth_file", "detections_file",
@@ -40,13 +44,15 @@ SUMMARY_COLUMNS = [
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Generate simulated 2D radar measurements.")
+    parser = argparse.ArgumentParser(description="Generate stochastic radar measurements.")
     parser.add_argument("--scenario", type=str, default=None,
                         help="Scenario JSON (default: active/radar/scenario.json from stage 5).")
     parser.add_argument("--input-dir", type=str, default=None,
-                        help="Directory of stage-4 trajectory CSVs (default: active/trajectories_10s).")
+                        help="Directory of stage-6 beam-crossing CSVs (default: active/radar/beam_crossings).")
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Directory for truth/detection CSVs (default: active/radar/measurements).")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="Override the scenario seed (for Monte-Carlo repetitions).")
     return parser.parse_args()
 
 
@@ -55,15 +61,14 @@ def parse_args():
 # =============================================================================
 
 def _fail(message: str) -> None:
-    raise ValueError(f"Stage 06 validation failed: {message}")
+    raise ValueError(f"Stage 07 validation failed: {message}")
 
 
 def _check_false_alarm_rate(day_results, sc: Scenario) -> None:
     """Empirical FA/scan must match n_cells * Pfa(floor) within 5 sigma."""
     expected = sc.expected_false_alarms_per_scan()
     for r in day_results:
-        n_scans = r["n_scans"]
-        tol = 5.0 * np.sqrt(expected / n_scans)   # Poisson std of the per-scan mean
+        tol = 5.0 * np.sqrt(expected / r["n_scans"])   # Poisson std of the per-scan mean
         if abs(r["fa_per_scan"] - expected) > tol:
             _fail(f"{r['date']}: FA/scan {r['fa_per_scan']:.1f} vs expected {expected:.1f} (tol {tol:.1f})")
     print(f"  false-alarm rate ~= {expected:.1f}/scan on every day: OK")
@@ -102,40 +107,34 @@ def _check_measurement_noise(day_results, sc: Scenario) -> None:
         _fail("measurement noise does not match scenario sigmas")
 
 
-def _check_coverage_bounds(day_results, sc: Scenario) -> None:
-    """True positions must respect the coverage gates exactly."""
-    truth = pd.concat([r["_truth"] for r in day_results], ignore_index=True)
-    in_range = truth["true_range_m"].between(sc.range_min_m, sc.range_max_m).all()
-    in_el = truth["true_elevation_deg"].between(sc.elevation_min_deg, sc.elevation_max_deg).all()
-    if not (in_range and in_el):
-        _fail("truth rows outside the coverage volume")
-    print("  all opportunities within coverage gates: OK")
-
-
 def main() -> None:
     args = parse_args()
     sc = Scenario.load(args.scenario or get_scenario_path())
-    input_dir = args.input_dir or get_trajectories_dir()
+    if args.seed is not None:
+        sc.seed = args.seed
+    input_dir = args.input_dir or get_beam_crossings_dir()
     output_dir = args.output_dir or get_measurements_dir()
     os.makedirs(output_dir, exist_ok=True)
 
     day_files = discover_input_files(input_dir)
     if not day_files:
-        raise FileNotFoundError(f"No stage-4 trajectory CSVs found in {input_dir}")
+        raise FileNotFoundError(f"No stage-6 beam-crossing CSVs found in {input_dir}")
+    scan_grid = load_scan_grid(get_beam_crossings_summary_path(input_dir))
 
     day_results = []
     for i, (date, path) in enumerate(day_files):
+        if date not in scan_grid:
+            raise ValueError(f"{date} missing from the stage-6 summary; rerun 06_beam_crossings.py")
+        scan_t0, n_scans = scan_grid[date]
         # Independent, reproducible stream per day.
         rng = np.random.default_rng(sc.seed + i)
-        result = process_day(date, path, output_dir, sc, rng)
+        result = process_day(date, path, output_dir, sc, scan_t0, n_scans, rng)
         day_results.append(result)
         print(f"\n--- {result['date']} ---")
-        print(f"scans:                       {result['n_scans']}")
-        print(f"trajectories in coverage:    {result['trajectories_in_coverage']} / {result['trajectories_in_day']}")
-        print(f"opportunities (beam hits):   {result['opportunities']}")
-        print(f"mean Pd at {sc.threshold_min_db:.0f} dB floor:      {result['mean_pd_at_floor']:.3f}")
+        print(f"opportunities (beam crossings): {result['opportunities']}")
+        print(f"mean Pd at {sc.threshold_min_db:.0f} dB floor:         {result['mean_pd_at_floor']:.3f}")
         print(f"detections target/noise/clutter: {result['det_target']} / {result['det_noise']} / {result['det_clutter']}")
-        print(f"detections file:             {result['detections_file']}")
+        print(f"detections file:                {result['detections_file']}")
 
     summary_rows = [{k: v for k, v in r.items() if k in SUMMARY_COLUMNS} for r in day_results]
     summary_df = pd.DataFrame(summary_rows, columns=SUMMARY_COLUMNS)
@@ -146,12 +145,11 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("VALIDATION GATE")
     print("=" * 70)
-    _check_coverage_bounds(day_results, sc)
     _check_false_alarm_rate(day_results, sc)
     _check_pd_vs_theory(day_results, sc)
     _check_measurement_noise(day_results, sc)
 
-    print("\n06_generate_measurements completed successfully.")
+    print("\n07_generate_measurements completed successfully.")
 
 
 if __name__ == "__main__":

@@ -36,8 +36,18 @@ def get_scenario_path() -> str:
     return os.path.join(get_radar_dir(), "scenario.json")
 
 
+def get_beam_crossings_dir() -> str:
+    """Per-day deterministic beam-crossing truth CSVs (stage 6 output, stage 7 input)."""
+    return os.path.join(get_radar_dir(), "beam_crossings")
+
+
+def get_beam_crossings_summary_path(output_dir: str = "") -> str:
+    """Cross-day beam-crossing summary CSV (also carries each day's scan grid)."""
+    return os.path.join(output_dir or get_beam_crossings_dir(), "beam_crossings_summary.csv")
+
+
 def get_measurements_dir() -> str:
-    """Per-day detection and truth CSVs (stage 6 output)."""
+    """Per-day detection and truth CSVs (stage 7 output)."""
     return os.path.join(get_radar_dir(), "measurements")
 
 
