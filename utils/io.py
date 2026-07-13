@@ -37,20 +37,15 @@ def get_scenario_path() -> str:
 
 
 def get_beam_crossings_dir() -> str:
-    """Per-day deterministic beam-crossing truth CSVs (stage 6 output, stage 7 input)."""
+    """Deterministic beam-crossing cache, shared by stages 6-8."""
     return os.path.join(get_radar_dir(), "beam_crossings")
 
 
-def get_beam_crossings_summary_path(output_dir: str = "") -> str:
-    """Cross-day beam-crossing summary CSV (also carries each day's scan grid)."""
-    return os.path.join(output_dir or get_beam_crossings_dir(), "beam_crossings_summary.csv")
+def get_stage_dir(stage: int) -> str:
+    """Per-day truth/detection CSVs for one measurement stage (6, 7, or 8)."""
+    return os.path.join(get_radar_dir(), f"stage{stage:02d}")
 
 
-def get_measurements_dir() -> str:
-    """Per-day detection and truth CSVs (stage 7 output)."""
-    return os.path.join(get_radar_dir(), "measurements")
-
-
-def get_measurements_summary_path(output_dir: str = "") -> str:
-    """Cross-day measurement-generation summary CSV."""
-    return os.path.join(output_dir or get_measurements_dir(), "radar_measurements_summary.csv")
+def get_plot_dir() -> str:
+    """Figures directory (shared with WHACK01's plots)."""
+    return os.path.join(get_data_root(), "plot")

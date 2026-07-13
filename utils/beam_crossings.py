@@ -16,6 +16,7 @@ Pipeline per day (see process_day):
   -> mean SNR from the radar equation -> one row per in-coverage crossing.
 """
 
+import json
 import os
 import re
 from typing import Dict, List, Tuple
@@ -148,3 +149,54 @@ def process_day(date: str, input_path: str, output_dir: str, sc: Scenario) -> Di
         # for the validation gate only, not written to the summary CSV
         "_crossings": crossings,
     }
+
+
+def _geometry_fingerprint(sc: Scenario) -> Dict:
+    """The scenario fields that determine the beam-crossing geometry. If any
+    of these change, the cache is stale and must be recomputed."""
+    return {k: getattr(sc, k) for k in (
+        "site_lat_deg", "site_lon_deg", "site_alt_m", "scan_period_s",
+        "range_min_m", "range_max_m", "elevation_min_deg", "elevation_max_deg",
+        "snr_ref_db", "range_ref_m",
+    )}
+
+
+def ensure_beam_crossings(traj_dir: str, cache_dir: str, sc: Scenario
+                          ) -> Tuple[List[Tuple[str, str]], Dict[str, Tuple[float, int]]]:
+    """Compute the beam-crossing cache if missing or stale, else reuse it.
+
+    Returns (sorted (date, crossings_path) pairs, {date: (scan_t0, n_scans)}).
+    Geometry is deterministic, so the cache is shared by stages 6-8; a
+    fingerprint sidecar invalidates it when the scenario's geometry changes.
+    """
+    day_files = discover_input_files(traj_dir)
+    if not day_files:
+        raise FileNotFoundError(f"No stage-4 trajectory CSVs found in {traj_dir}")
+
+    fp_path = os.path.join(cache_dir, "geometry_fingerprint.json")
+    summary_path = os.path.join(cache_dir, "beam_crossings_summary.csv")
+    paths = {d: os.path.join(cache_dir, f"beam_crossings_{d}.csv") for d, _ in day_files}
+
+    fresh = (os.path.exists(fp_path) and os.path.exists(summary_path)
+             and all(os.path.exists(p) for p in paths.values()))
+    if fresh:
+        with open(fp_path) as f:
+            fresh = json.load(f) == _geometry_fingerprint(sc)
+
+    if fresh:
+        print(f"beam-crossing cache is current: {cache_dir}")
+        s = pd.read_csv(summary_path)
+    else:
+        print("computing beam crossings (deterministic, cached for stages 6-8)...")
+        os.makedirs(cache_dir, exist_ok=True)
+        results = [process_day(d, p, cache_dir, sc) for d, p in day_files]
+        s = pd.DataFrame([{k: v for k, v in r.items() if not k.startswith("_")} for r in results])
+        s.to_csv(summary_path, index=False)
+        with open(fp_path, "w") as f:
+            json.dump(_geometry_fingerprint(sc), f, indent=2)
+        for r in results:
+            print(f"  {r['date']}: {r['crossings']} crossings, "
+                  f"{r['trajectories_in_coverage']} trajectories in coverage")
+
+    scan_grid = {row["date"]: (float(row["scan_t0"]), int(row["n_scans"])) for _, row in s.iterrows()}
+    return [(d, paths[d]) for d, _ in day_files], scan_grid

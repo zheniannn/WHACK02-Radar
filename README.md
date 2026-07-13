@@ -1,16 +1,17 @@
 # WHACK02-Radar
 
-Three-stage 2D radar measurement simulator. Consumes the ground-truth
-conventional-GA trajectories produced by
-[WHACK01-Preprocessing](https://github.com/zheniannn/WHACK01-Preprocessing)
-and produces per-scan radar detections — genuine targets, noise false
-alarms, and persistent ground clutter — for studying track-based
-target-vs-clutter discrimination at low CFAR thresholds.
+2D radar measurement simulator built on the ground-truth conventional-GA
+trajectories from
+[WHACK01-Preprocessing](https://github.com/zheniannn/WHACK01-Preprocessing).
+Stages 6–8 form a progressive-complexity ladder for studying track-based
+target-vs-clutter discrimination at low CFAR thresholds: each stage adds
+exactly one phenomenon, so every effect in the figures has a single cause.
 
-The pipeline separates **deterministic** from **stochastic**: stage 6
-computes pure geometry once (the slow part); stage 7 draws the random
-measurement layer on top and can be re-run cheaply with different seeds
-(Monte Carlo) or noise settings.
+| Stage | SNR | Fluctuation | Meas. noise | False alarms | Clutter |
+|---|---|---|---|---|---|
+| 6 | fixed 15 dB | — | — | — | — |
+| 7 | fixed 15 dB | ✓ | ✓ | ✓ | ✓ |
+| 8 | radar equation (R⁻⁴) | ✓ | ✓ | ✓ | ✓ |
 
 ## Structure
 
@@ -18,20 +19,22 @@ measurement layer on top and can be re-run cheaply with different seeds
 WHACK02-Radar/
 ├── requirements.txt
 ├── scripts/
-│   ├── 05_radar_scenario.py          # stage 5: site selection -> scenario.json
-│   ├── 06_beam_crossings.py          # stage 6: trajectories -> deterministic radar truth
-│   └── 07_generate_measurements.py   # stage 7: truth -> detections (noise, FAs, clutter)
+│   ├── 05_radar_scenario.py          # stage 5: site + radar definition -> scenario.json
+│   ├── 06_trajectories_clean.py      # stage 6: trajectories only, fixed SNR, no clutter/noise
+│   ├── 07_trajectories_cluttered.py  # stage 7: fixed SNR + clutter + noise
+│   └── 08_radar_equation_range.py    # stage 8: radar-equation SNR + max-range analysis
 └── utils/
     ├── io.py                          # input/output path resolution
     ├── geometry.py                    # geodetic -> ENU -> range/azimuth/elevation
     ├── scenario.py                    # stage 5 rules: site, radar physics, scenario schema
-    ├── beam_crossings.py              # stage 6 rules: beam timing, coverage gating
-    └── measurements.py                # stage 7 rules: detection draws, noise, FAs, clutter
+    ├── beam_crossings.py              # shared deterministic geometry (cached for stages 6-8)
+    ├── measurements.py                # MeasurementConfig + the stochastic measurement layer
+    └── plots.py                       # shared PPI / max-range figures
 ```
 
 ## Requirements
 
-Python ≥ 3.10 with `pandas` and `numpy`:
+Python ≥ 3.10:
 
 ```bash
 pip install -r requirements.txt
@@ -43,115 +46,128 @@ Same convention as WHACK01: the data root defaults to `data/` next to the
 repository (override with `WHACK_DATA_ROOT`).
 
 ```
-<data root>/active/
-├── trajectories_10s/      # WHACK01 stage 4 output (this repo's input)
-└── radar/
-    ├── scenario.json      # stage 5 output
-    ├── beam_crossings/    # stage 6 output
-    └── measurements/      # stage 7 output
+<data root>/
+├── plot/                      # figures from all stages
+└── active/
+    ├── trajectories_10s/      # WHACK01 stage 4 output (this repo's input)
+    └── radar/
+        ├── scenario.json      # stage 5 output
+        ├── beam_crossings/    # deterministic geometry cache (shared by 6-8)
+        ├── stage06/           # per-day truth + detections per stage
+        ├── stage07/
+        └── stage08/           #   ... + max_range_report.json
 ```
 
 ## Usage
 
 ```bash
 python scripts/05_radar_scenario.py
-python scripts/06_beam_crossings.py
-python scripts/07_generate_measurements.py
+python scripts/06_trajectories_clean.py
+python scripts/07_trajectories_cluttered.py
+python scripts/08_radar_equation_range.py
 ```
+
+Whichever of stages 6–8 runs first computes the beam-crossing cache; the
+others reuse it (a fingerprint sidecar recomputes it automatically if the
+scenario's geometry changes).
 
 ---
 
 ## Stage 5 — `05_radar_scenario.py`
 
-Chooses the radar site and freezes every simulation parameter into
-`scenario.json` so later stages are reproducible.
+Defines the radar: location, settings, characteristics. Simulates nothing.
 
 - **Site**: centre of the densest 0.25° traffic cell across all days
-  (density = sample count = dwell time, so busy training areas outweigh
-  fast transits). Site elevation is estimated from the 1st percentile of
-  nearby flight altitudes minus 150 m (terrain proxy — no DEM is used).
-- **Radar model** (defaults; edit `scenario.json` or use CLI flags):
-  2D fan-beam surveillance radar, 10 s scan period, 1–80 km instrumented
-  range, 0.3–30° elevation fan, 150 m range resolution, 1.5° beamwidth,
-  σ_range = 50 m, σ_azimuth = 0.2°.
-- **Radar physics live on the `Scenario` class** (`utils/scenario.py`):
-  the calibrated radar equation (mean SNR 15 dB for a 1 m² target at
-  50 km, R⁻⁴ two-way falloff), `Pfa(τ) = exp(−τ)`, and the Swerling-1
-  `Pd = Pfa^(1/(1+SNR))`. Stages 6–7 only *apply* this model; the script
-  prints an SNR/Pd-vs-range table at scenario time.
-- **Clutter map**: 25 stationary patches, uniform in azimuth, within
-  40 km, mean SNR 12 dB — fixed across days (ground clutter is static).
+  (density = sample count = dwell time) → Phoenix/Mesa, AZ. Site elevation
+  from the 1st percentile of nearby flight altitudes minus 150 m (terrain
+  proxy — no DEM).
+- **Radar model**: 2D fan-beam surveillance radar, 10 s scan, 1–80 km,
+  0.3–30° elevation fan, 150 m × 1.5° resolution cells, σ_range = 50 m,
+  σ_azimuth = 0.2° (≈ beamwidth/7.5, a standard monopulse fraction).
+- **Radar physics live on the `Scenario` class**: calibrated radar
+  equation (15 dB for 1 m² at 50 km, R⁻⁴), `Pfa(τ) = exp(−τ)`, Swerling-1
+  `Pd = Pfa^(1/(1+SNR))`. Later stages only apply this model.
+- **Clutter map**: 25 stationary patches (positions frozen here — ground
+  clutter doesn't move between days or between Monte-Carlo runs), mean
+  SNR 12 dB, within 40 km.
+- Everything is frozen into `scenario.json` with the RNG seed; all later
+  stages are reproducible functions of that file.
 
-CLI flags: `--range-max-km`, `--threshold-min-db`, `--seed`,
-`--input-dir`, `--output`.
+CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 
-## Stage 6 — `06_beam_crossings.py` (deterministic truth)
+## Shared geometry — the beam-crossing cache
 
-Computes, per day, **when and where the radar's beam crosses each
-trajectory** — with zero randomness.
+A rotating beam hits a target at `scan_start + azimuth/360 × T`, where the
+azimuth itself depends on the target's position at that time (solved with
+two fixed-point iterations; GA targets move < 1 km per scan). Ground truth
+is interpolated to the crossing instant, never extrapolated. Coverage
+gating: slant range in [1, 80] km, elevation in the fan (altitude is used
+only for slant range and elevation — a 2D radar does not measure it). This
+is fully deterministic, so it's computed once into
+`radar/beam_crossings/` and shared by stages 6–8.
 
-1. **Scan epochs** — a fixed 10 s grid covering the day.
-2. **Beam-crossing times** — a rotating beam hits a target at
-   `scan_start + azimuth/360 × T`; the azimuth depends on where the target
-   is at that time, solved with two fixed-point iterations (GA targets
-   move < 1 km per scan, so convergence error is far below measurement
-   noise). Ground truth is interpolated to the crossing time; never
-   extrapolated beyond the trajectory's span.
-3. **Coverage gating** — slant range within [range_min, range_max] and
-   elevation within the fan. Altitude is used only for slant-range and
-   elevation computation (2D radar: it is not measured).
-4. **Mean SNR** — the scenario's radar equation evaluated at the true range.
+## Stage 6 — `06_trajectories_clean.py`
 
-**Output:** `beam_crossings_<date>.csv` — one row per in-coverage crossing
-(`scan_idx, t, trajectory_id, icao24, true_range_m, true_azimuth_deg,
-true_elevation_deg, snr_mean_db`) — plus `beam_crossings_summary.csv`,
-which also carries each day's scan grid (`scan_t0`, `n_scans`) for stage 7.
+**Aircraft trajectories only — no clutter, no noise — at a fixed SNR of
+15 dB.** Fluctuation, measurement noise, false alarms, and clutter are all
+off; 15 dB always clears the 8 dB floor, so every in-coverage beam
+crossing is recorded exactly. The output is the pure per-scan radar view
+of the trajectories, and the PPI figure shows clean tracks.
 
-**Validation gate:** every crossing inside the coverage gates; `snr_mean_db`
-exactly equals the radar equation at the true range; crossing cadence sits
-on the scan grid.
+Gate: every crossing detected; targets only; measurements identical to
+truth; `snr_db` exactly 15.
 
-## Stage 7 — `07_generate_measurements.py` (stochastic layer)
+## Stage 7 — `07_trajectories_cluttered.py`
 
-Draws the random measurement process on top of stage 6's truth.
+**Same fixed 15 dB SNR, now with clutter and noise.** Swerling-1
+fluctuation (Pd ≈ 0.82 at the 8 dB floor — *uniform at every range*),
+Gaussian measurement noise, Poisson false alarms over the 126,240 CFAR
+cells (~230/scan at 8 dB), and the 25 persistent clutter patches. The
+figure uses the same 15-minute window as stage 6, so the added
+contamination is the only difference.
 
-1. **Detection draws** — square-law detector, exponential noise,
-   Swerling 1 target fluctuation: each crossing draws a measured power
-   `z ~ Exp(1 + SNR_mean)`; a measurement is recorded when
-   `z ≥ threshold_min`. `snr_db = 10·log₁₀(z)` is stored, so **any CFAR
-   threshold ≥ the floor can be applied post-hoc** by filtering on
-   `snr_db` — one dataset supports a full ROC sweep.
-2. **Measurement noise** — Gaussian on range and azimuth (wrapped to
-   [0, 360)) for detected crossings.
-3. **False alarms** — Poisson over resolution cells × scans at
-   `Pfa(floor)`; conditional power uses the memoryless property
-   (`z = τ + Exp(1)`). Uniform over range and azimuth.
-4. **Clutter** — each patch fluctuates per scan around its mean SNR and
-   is measured with the same noise model; labelled `clutter`.
+Gate: Pd uniform across range bins and equal to the fixed-SNR closed form;
+false-alarm rate within 5σ of theory; measurement σs reproduced.
 
-**Outputs (per day):**
+`--seed` re-rolls the stochastic layer (Monte Carlo) without recomputing
+geometry.
 
-- `radar_truth_<date>.csv` — every beam crossing with its measured SNR and
-  detection outcome. This is the denominator for Pd and
-  track-completeness metrics.
+## Stage 8 — `08_radar_equation_range.py`
+
+**Full physics: SNR from the radar equation, with clutter and noise.**
+Distant targets fade under the R⁻⁴ law (Pd ≈ 1.0 near, ~0.34 at 80 km),
+and the stage answers: *what is the maximum range before the radar drops
+an aircraft trajectory?* Two limits are computed and written to
+`max_range_report.json`:
+
+- **Detection limit** — the range where single-scan Pd falls to 0.5
+  (empirical, checked against the closed form).
+- **Tracking limit** — the range where 50% of tracks contain a gap of ≥ 3
+  consecutive missed scans (a simple track-drop proxy: most trackers coast
+  only a couple of scans before deleting a track).
+
+Gates: Pd tracks the Swerling-1 closed form per range bin; false-alarm
+rate within 5σ. Figures: the same 15-minute PPI window as stages 6–7, and
+the max-range analysis (Pd vs range + broken-track fraction vs range with
+both limits marked).
+
+All detections carry their measured `snr_db` down to the 8 dB floor, so
+any CFAR threshold ≥ the floor can be applied post-hoc by filtering —
+one dataset supports a full ROC sweep.
+
+## Outputs (per stage, per day)
+
+- `radar_truth_<date>.csv` — every beam crossing with measured SNR and
+  detection outcome (the Pd denominator).
 - `radar_detections_<date>.csv` — what a tracker sees: `scan_idx`, `t`,
-  `range_m`, `azimuth_deg`, `snr_db`, `source`
-  (`target` / `noise` / `clutter`), plus truth linkage
-  (`trajectory_id`, `icao24`, true position) for evaluation only.
-- `radar_measurements_summary.csv` — one row per day.
-
-**Validation gate:** empirical false-alarm rate within 5σ of
-`n_cells × Pfa(floor)`; empirical Pd tracks the Swerling-1 closed form
-(±0.05) in three range bins; target measurement residuals reproduce
-σ_range and σ_azimuth within 5%.
-
-**Monte Carlo:** `--seed N --output-dir <dir>` produces an independent
-measurement realisation of the same geometry without recomputing stage 6.
+  `range_m`, `azimuth_deg`, `snr_db`, `source` (`target`/`noise`/`clutter`),
+  plus truth linkage for evaluation only.
+- `measurements_summary.csv` — one row per day.
+- Figures in `<data root>/plot/`.
 
 ## Extending
 
-Stage-5 rules and all radar physics live in `utils/scenario.py`; stage-6
-geometry in `utils/beam_crossings.py`; stage-7 stochastics in
-`utils/measurements.py`. The scenario JSON is the single source of truth
-for parameters — edit it (or rerun stage 5 with flags) and rerun stages
-6–7.
+All radar physics: `utils/scenario.py`. Geometry: `utils/beam_crossings.py`.
+Stochastic layer and stage recipes (`MeasurementConfig`):
+`utils/measurements.py`. The scenario JSON is the single source of truth —
+edit it (or rerun stage 5 with flags) and rerun stages 6–8.
