@@ -21,8 +21,7 @@ every effect in the figures has a single cause.
 WHACK02-Radar/
 ├── requirements.txt
 ├── scripts/
-│   ├── 05_radar_scenario.py          # stage 5: site + radar definition -> scenario.json
-│   ├── 05b_real_ascope.py            # real-flight detection figures (N118AT): echo-vs-distance + ground track
+│   ├── 05_radar_scenario.py          # stage 5: site + radar -> scenario.json + real-flight detection figures
 │   ├── 06_trajectories_clean.py      # stage 6: trajectories only, fixed SNR, no clutter/noise
 │   ├── 07_trajectories_cluttered.py  # stage 7: fixed SNR + clutter + noise
 │   ├── 08_trajectories_radar_equation.py # stage 8: radar-equation SNR, no clutter/noise
@@ -68,14 +67,13 @@ repository (override with `WHACK_DATA_ROOT`).
 ```bash
 python scripts/05_radar_scenario.py
 python scripts/06_trajectories_clean.py
-python scripts/05b_real_ascope.py            # A-scope from a real flight (needs beam crossings)
 python scripts/07_trajectories_cluttered.py
 python scripts/08_trajectories_radar_equation.py
 python scripts/09_radar_equation_cluttered.py
 ```
 
-Whichever of stages 6–9 (or 05b) runs first computes the beam-crossing
-cache; the others reuse it (a fingerprint sidecar recomputes it
+Stage 5 builds the beam-crossing cache (for its detection figures); stages
+6–9 reuse it (a fingerprint sidecar recomputes it
 automatically if the scenario's geometry changes).
 
 ---
@@ -99,8 +97,8 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   SNR 12 dB, within 40 km.
 - Everything is frozen into `scenario.json` with the RNG seed; all later
   stages are reproducible functions of that file.
-- The **detection figures** are data-derived (see
-  `scripts/05b_real_ascope.py`, run after stage 6): a real 2022-06-06 flight,
+- The **detection figures** are data-derived (built by this stage after the
+  scenario, using the beam-crossing cache): a real 2022-06-06 flight,
   N118AT (Piper PA-44-180 Seminole), outbound 8 → 200 km.
   `stage05_ascope_8db_distance.png` / `stage05_ascope_5db_distance.png` trace
   its echo across all ranges (mean radar-equation curve + per-scan Swerling
