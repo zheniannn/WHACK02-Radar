@@ -148,14 +148,19 @@ def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
     plt.close(fig)
 
 
-def plot_ascope(sc, out_path: str) -> None:
+def plot_ascope(sc, out_path: str, threshold_db: float = None) -> None:
     """A-scope: echo amplitude vs range along ONE beam, one scan --
     synthesized from the scenario's own statistics (Exp(1) noise per range
     cell). Two illustrative targets are shown at their MEAN echo power (a
     near one and a marginal far one) plus one clutter patch, with the CFAR
-    floor and a conventional threshold drawn. This is the picture in which
-    'lowering the CFAR threshold in dB' is defined.
+    floor at threshold_db (default sc.threshold_min_db) drawn. This is the
+    picture in which 'lowering the CFAR threshold in dB' is defined.
+
+    The noise realisation is seeded from sc.seed, so calling this at two
+    thresholds yields identical noise -- only the floor line and the number
+    of noise crossings above it differ, which is exactly the comparison.
     """
+    threshold_db = sc.threshold_min_db if threshold_db is None else threshold_db
     rng = np.random.default_rng(sc.seed)
     n = int((sc.range_max_m - sc.range_min_m) / sc.range_resolution_m)
     r_km = (sc.range_min_m + sc.range_resolution_m * (np.arange(n) + 0.5)) / 1000
@@ -177,11 +182,11 @@ def plot_ascope(sc, out_path: str) -> None:
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(r_km, amp_db, color=MUTED, lw=0.7, zorder=2)
-    ax.axhline(sc.threshold_min_db, color=INK, lw=1.4, ls="--", zorder=4)
-    ax.annotate(f"CFAR floor {sc.threshold_min_db:g} dB (this study)",
-                (2, sc.threshold_min_db + 0.7), color=INK, fontsize=9)
+    ax.axhline(threshold_db, color=INK, lw=1.4, ls="--", zorder=4)
+    ax.annotate(f"CFAR floor {threshold_db:g} dB", (2, threshold_db + 0.7),
+                color=INK, fontsize=9)
     ax.axhline(13.0, color=INK2, lw=1.2, ls=":", zorder=4)
-    ax.annotate("conventional ~13 dB (far target lost)", (44, 13.7), color=INK2, fontsize=9)
+    ax.annotate("conventional ~13 dB", (44, 13.7), color=INK2, fontsize=9)
 
     for label, rr, db in marks:
         color = C_TARGET if label == "target" else C_CLUTTER
@@ -190,18 +195,20 @@ def plot_ascope(sc, out_path: str) -> None:
         ax.annotate(f"{label} {rr:.0f} km\n{db:.1f} dB", (rr + dx, db + 1.2),
                     color=color, fontsize=9, ha="center")
 
-    fa = (amp_db >= sc.threshold_min_db) & ~np.isin(
+    fa = (amp_db >= threshold_db) & ~np.isin(
         np.arange(n), [int(np.argmin(np.abs(r_km - m[1]))) for m in marks])
     if fa.any():
-        ax.plot(r_km[fa], amp_db[fa], "o", ms=5, color=C_NOISE, zorder=5)
-        ax.annotate("noise false alarm", (r_km[fa][0], amp_db[fa][0] + 1.2),
-                    color=INK2, fontsize=9, ha="center")
+        ax.plot(r_km[fa], amp_db[fa], "o", ms=5, color=C_NOISE, zorder=5,
+                label=f"noise false alarms: {int(fa.sum())}")
+        leg = ax.legend(loc="upper right", frameon=False, fontsize=9)
+        for t in leg.get_texts():
+            t.set_color(INK2)
 
     ax.set_xlim(0, sc.range_max_m / 1000 * 1.02); ax.set_ylim(-20, 30)
     ax.set_xlabel("range (km)"); ax.set_ylabel("received power over mean noise (dB)")
-    ax.set_title("A-scope — one beam, one scan (targets at mean echo power; "
-                 "Swerling fading adds ±10 dB scan-to-scan)\n"
-                 "lowering the threshold keeps the far target but admits noise crossings",
+    ax.set_title(f"A-scope at a {threshold_db:g} dB CFAR floor -- one beam, one scan "
+                 "(targets at mean echo power)\n"
+                 "lowering the floor keeps more targets but admits more noise crossings",
                  color=INK)
     fig.tight_layout()
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

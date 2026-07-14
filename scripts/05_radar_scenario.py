@@ -76,9 +76,12 @@ def main() -> None:
         snr_db = 10 * np.log10(sc.snr_mean_lin(r_km * 1000.0))
         print(f"  {r_km:>5} km | {snr_db:>6.1f} dB | {float(sc.pd(r_km * 1000.0)):>10.3f}")
 
-    ascope_path = os.path.join(get_plot_dir(), "stage05_ascope.png")
-    plot_ascope(sc, ascope_path)
-    print(f"\nA-scope illustration written to: {ascope_path}")
+    # A-scope illustration at two CFAR floors (same noise realisation), so the
+    # effect of lowering the floor from 8 dB to 5 dB is directly comparable.
+    for thr in (8.0, 5.0):
+        p = os.path.join(get_plot_dir(), f"stage05_ascope_{thr:g}db.png")
+        plot_ascope(sc, p, threshold_db=thr)
+        print(f"\nA-scope ({thr:g} dB) written to: {p}")
     print(f"scenario written to: {os.path.abspath(output_path)}")
 
 
