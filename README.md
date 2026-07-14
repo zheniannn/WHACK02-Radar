@@ -97,11 +97,13 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   SNR 12 dB, within 40 km.
 - Everything is frozen into `scenario.json` with the RNG seed; all later
   stages are reproducible functions of that file.
-- Emits an **A-scope** figure (`stage05_ascope.png`): echo amplitude vs
-  range along one synthesized beam, with the noise floor, the 8 dB CFAR
-  floor, a conventional ~13 dB threshold, a near and a marginal far target
-  (at mean echo power), and a clutter spike — the picture in which
-  "lowering the CFAR threshold in dB" is defined.
+- The **A-scope** figures are data-derived (see
+  `scripts/05b_real_ascope.py`, run after stage 6): a real 2022-06-06 flight,
+  N118AT (Piper PA-44-180 Seminole), shown at two scans of its own outbound
+  track -- strong at 25 km (27 dB) and, 14 min later, marginal at 68 km
+  (10 dB), between the 8 dB floor and the conventional 13 dB. Generated at
+  both an 8 dB and a 5 dB CFAR floor (`stage05_ascope_8db.png`,
+  `stage05_ascope_5db.png`) so the effect of lowering the floor is visible.
 
 CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 

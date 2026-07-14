@@ -33,10 +33,10 @@ DATE = "2022-06-06"
 TRAJECTORY_ID = "a049fd_1654554529_r0"
 AIRCRAFT = "N118AT  Piper PA-44-180 Seminole"
 NEAR_KM, FAR_KM = 25.0, 68.0
-FLOOR_DB = 8.0
+FLOORS_DB = (8.0, 5.0)          # generate the A-scope at each CFAR floor
 
 
-def _panel(ax, sc, r_km_target, snr_db, az_deg, scan_idx, label, seed):
+def _panel(ax, sc, r_km_target, snr_db, az_deg, scan_idx, label, seed, floor_db):
     rng = np.random.default_rng(seed)
     n = int((sc.range_max_m - sc.range_min_m) / sc.range_resolution_m)
     r_km = (sc.range_min_m + sc.range_resolution_m * (np.arange(n) + 0.5)) / 1000
@@ -57,8 +57,8 @@ def _panel(ax, sc, r_km_target, snr_db, az_deg, scan_idx, label, seed):
     ax.annotate(f"N118AT\n{r_km_target:.0f} km · {tdb:.1f} dB", (r_km_target, tdb + 2),
                 color=C_TARGET, fontsize=9, ha="center")
 
-    ax.axhline(FLOOR_DB, color=INK, lw=1.3, ls="--", zorder=4)
-    ax.annotate(f"CFAR floor {FLOOR_DB:g} dB", (2, FLOOR_DB + 0.7), color=INK, fontsize=8)
+    ax.axhline(floor_db, color=INK, lw=1.3, ls="--", zorder=4)
+    ax.annotate(f"CFAR floor {floor_db:g} dB", (2, floor_db + 0.7), color=INK, fontsize=8)
     ax.axhline(13.0, color=INK2, lw=1.1, ls=":", zorder=4)
     ax.annotate("conventional ~13 dB", (2, 13.7), color=INK2, fontsize=8)
     ax.set_xlim(0, sc.range_max_m / 1000 * 1.02); ax.set_ylim(-20, 32)
@@ -80,29 +80,32 @@ def main() -> None:
     for target_km in (NEAR_KM, FAR_KM):
         row = a.loc[(a.true_range_m / 1000 - target_km).abs().idxmin()]
         picks.append(row)
-
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5), sharey=True)
-    for ax, row, tag in zip(axes, picks, ("strong (near)", "marginal (far)")):
-        _panel(ax, sc, row.true_range_m / 1000, row.snr_mean_db, row.true_azimuth_deg,
-               int(row.scan_idx),
-               f"scan {int(row.scan_idx)} · az {row.true_azimuth_deg:.0f}° · {tag}",
-               seed=sc.seed + int(row.scan_idx))
-    axes[0].set_ylabel("received power over mean noise (dB)")
     dt_min = (picks[1].scan_idx - picks[0].scan_idx) * sc.scan_period_s / 60
-    fig.suptitle(f"A-scope from a real flight -- {AIRCRAFT} ({DATE})\n"
-                 f"same aircraft {dt_min:.0f} min apart on its outbound track: "
-                 f"strong at {picks[0].true_range_m/1000:.0f} km, "
-                 f"marginal at {picks[1].true_range_m/1000:.0f} km as its echo fades",
-                 color=INK, y=1.0)
-    fig.tight_layout()
-    out = os.path.join(get_plot_dir(), "stage05_ascope_real_N118AT.png")
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.savefig(out, dpi=150); plt.close(fig)
-    print(f"real A-scope ({AIRCRAFT}) -> {out}")
-    print(f"  near: scan {int(picks[0].scan_idx)}, {picks[0].true_range_m/1000:.1f} km, "
-          f"{picks[0].snr_mean_db:.1f} dB mean SNR")
-    print(f"  far:  scan {int(picks[1].scan_idx)}, {picks[1].true_range_m/1000:.1f} km, "
-          f"{picks[1].snr_mean_db:.1f} dB mean SNR")
+
+    for floor_db in FLOORS_DB:
+        fig, axes = plt.subplots(1, 2, figsize=(15, 5), sharey=True)
+        for ax, row, tag in zip(axes, picks, ("strong (near)", "marginal (far)")):
+            _panel(ax, sc, row.true_range_m / 1000, row.snr_mean_db, row.true_azimuth_deg,
+                   int(row.scan_idx),
+                   f"scan {int(row.scan_idx)} · az {row.true_azimuth_deg:.0f}° · {tag}",
+                   seed=sc.seed + int(row.scan_idx), floor_db=floor_db)
+        axes[0].set_ylabel("received power over mean noise (dB)")
+        fig.suptitle(f"A-scope from a real flight at a {floor_db:g} dB CFAR floor "
+                     f"-- {AIRCRAFT} ({DATE})\n"
+                     f"same aircraft {dt_min:.0f} min apart on its outbound track: "
+                     f"strong at {picks[0].true_range_m/1000:.0f} km, "
+                     f"marginal at {picks[1].true_range_m/1000:.0f} km as its echo fades",
+                     color=INK, y=1.0)
+        fig.tight_layout()
+        out = os.path.join(get_plot_dir(), f"stage05_ascope_{floor_db:g}db.png")
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        fig.savefig(out, dpi=150); plt.close(fig)
+        print(f"real A-scope ({floor_db:g} dB) -> {out}")
+
+    print(f"aircraft {AIRCRAFT}: near scan {int(picks[0].scan_idx)} "
+          f"{picks[0].true_range_m/1000:.1f} km {picks[0].snr_mean_db:.1f} dB; "
+          f"far scan {int(picks[1].scan_idx)} {picks[1].true_range_m/1000:.1f} km "
+          f"{picks[1].snr_mean_db:.1f} dB")
 
 
 if __name__ == "__main__":
