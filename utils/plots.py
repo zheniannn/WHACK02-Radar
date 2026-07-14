@@ -109,6 +109,39 @@ def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
     plt.close(fig)
 
 
+def plot_coverage(truth: pd.DataFrame, range_max_km: float, horizon_km: float,
+                  title: str, out_path: str) -> None:
+    """PPI of every in-coverage beam crossing out to the instrumented range,
+    coloured by whether it was detected (inside the horizon) or is a real
+    aircraft the radar cannot see (beyond it). Unlike the detection PPI, this
+    fills the whole coverage disc -- it shows what is THERE vs what is detected."""
+    det = truth[truth["detected"]]
+    und = truth[~truth["detected"]]
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    _ppi_axes(ax, range_max_km)
+    for d, color, s, alpha, z, lab in (
+        (und, C_NOISE, 2, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 4, 0.9, 4, f"detected ({len(det):,})"),
+    ):
+        dd, _ = _source_rows(d.assign(source="_"), "_")
+        if dd.empty:
+            continue
+        e, n = _en_km(dd["true_range_m"].to_numpy(), dd["true_azimuth_deg"].to_numpy())
+        ax.scatter(e, n, s=s, color=color, alpha=alpha, lw=0, zorder=z,
+                   rasterized=True, label=lab)
+    ax.add_patch(plt.Circle((0, 0), horizon_km, fill=False, color=INK, lw=1.2, ls=":", zorder=3))
+    ax.annotate(f"detection horizon {horizon_km:.0f} km", (0, -horizon_km - 3),
+                color=INK, fontsize=9, ha="center", va="top")
+    leg = ax.legend(loc="upper left", frameon=False, fontsize=9, markerscale=3)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    ax.set_title(title, color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
                 range_max_km: float, title: str, out_path: str) -> None:
     """B-scope (range vs azimuth) of detections in scans [k0, k0+window_scans),
