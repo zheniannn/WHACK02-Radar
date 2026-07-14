@@ -95,7 +95,7 @@ def main() -> None:
         results[PLOT_DAY_INDEX]["_dets"], k0, None, sc.range_max_m / 1000,
         f"Stage 8 — radar-equation SNR, no clutter or noise ({date}, full day)\n"
         "clean tracks end exactly at the deterministic detection horizon",
-        os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"), target_s=1.5)
+        os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"), target_s=1.2)
     plot_coverage(
         results[PLOT_DAY_INDEX]["_truth"], sc.range_max_m / 1000, horizon_m / 1000,
         f"Stage 8 — truth vs detected ({date}, full day)\n"
