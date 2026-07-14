@@ -157,7 +157,9 @@ def process_day(date: str, crossings_path: str, output_dir: str, sc: Scenario,
         "detections_file": os.path.abspath(det_path),
         # for validation gates / plots only, not written to the summary CSV
         "_truth": truth,
-        "_dets": dets,
+        # only target detections retained for the validation gate; the full
+        # detection set (incl. millions of false alarms at long range) is on disk.
+        "_dets": dets[dets["source"] == "target"].copy(),
     }
 
 

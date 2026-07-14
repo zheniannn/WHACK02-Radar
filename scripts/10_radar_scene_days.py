@@ -34,7 +34,7 @@ SITE_NAME = "Phoenix/Mesa AZ"
 DATA_ROOT = "/home/tzhen/projects/WHACK/data/active"
 RADAR_DIR = os.path.join(DATA_ROOT, "radar")
 CROSSINGS_DIR = os.path.join(RADAR_DIR, "beam_crossings")
-PLOT_DIR = "/home/tzhen/projects/WHACK/data/plot"
+PLOT_DIR = "/home/tzhen/projects/WHACK/data/plot/WHACK02-Radar"
 
 # Palette / rc lifted from utils/plots.py so these match the rest of stage 5-9.
 SURFACE = "#fcfcfb"; INK = "#0b0b0b"; INK2 = "#52514e"; MUTED = "#898781"
@@ -58,7 +58,7 @@ def _en_km(range_m, az_deg):
 
 def _ppi_frame(ax, range_max_km, label=True):
     """Range rings and radar marker on one PPI axis."""
-    for r in (20, 40, 60, 80):
+    for r in (40, 80, 120, 160, 200):
         if r <= range_max_km:
             ax.add_patch(plt.Circle((0, 0), r, fill=False, color=GRID, lw=0.8, zorder=1))
             ax.annotate(f"{r} km", (0, r), color=MUTED, fontsize=8, ha="center", va="bottom",

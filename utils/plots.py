@@ -34,7 +34,7 @@ def _en_km(range_m, az_deg):
 
 
 def _ppi_axes(ax, range_max_km):
-    rings = [r for r in (20, 40, 60, 80, 100) if r <= range_max_km]
+    rings = [r for r in (40, 80, 120, 160, 200) if r <= range_max_km]
     for r in rings:
         ax.add_patch(plt.Circle((0, 0), r, fill=False, color=GRID, lw=0.8, zorder=1))
         ax.annotate(f"{r} km", (0, r), color=MUTED, fontsize=8, ha="center", va="bottom")

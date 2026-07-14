@@ -32,7 +32,7 @@ class Scenario:
     # Coverage (2D fan-beam surveillance radar)
     scan_period_s: float = 10.0
     range_min_m: float = 1_000.0
-    range_max_m: float = 80_000.0
+    range_max_m: float = 200_000.0
     elevation_min_deg: float = 0.3
     elevation_max_deg: float = 30.0
     # Resolution cells (set the CFAR false-alarm opportunity count)

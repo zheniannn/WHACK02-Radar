@@ -94,7 +94,7 @@ def main() -> None:
         if len(sel) < 500:
             continue
         pd_emp = sel["detected"].mean()
-        pd_theory = float(sc.pd(sel["true_range_m"].median()))
+        pd_theory = float(sc.pd(sel["true_range_m"].to_numpy()).mean())  # mean over the bin, not Pd(median): robust to wide bins
         status = "OK" if abs(pd_emp - pd_theory) < 0.05 else "FAIL"
         print(f"    {lo / 1000:5.0f}-{hi / 1000:5.0f} km: {pd_emp:.3f} | {pd_theory:.3f}  {status}")
         if status == "FAIL":
@@ -153,7 +153,9 @@ def main() -> None:
 
     # --- Plots ---
     date, _ = day_files[PLOT_DAY_INDEX]
-    dets0 = results[PLOT_DAY_INDEX]["_dets"]
+    # read the plot day's FULL detections from disk (in-memory _dets keeps
+    # only targets to bound memory at long range); one day is cheap.
+    dets0 = pd.read_csv(os.path.join(output_dir, f"radar_detections_{date}.csv"))
     scan_t0, _ = scan_grid[date]
     k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
     plot_detection_window(

@@ -28,8 +28,8 @@ def parse_args():
                         help="Directory of stage-4 trajectory CSVs (default: active/trajectories_10s).")
     parser.add_argument("--output", type=str, default=None,
                         help="Scenario JSON path (default: active/radar/scenario.json).")
-    parser.add_argument("--range-max-km", type=float, default=80.0,
-                        help="Instrumented range in km (default: 80).")
+    parser.add_argument("--range-max-km", type=float, default=200.0,
+                        help="Instrumented range in km (default: 200).")
     parser.add_argument("--threshold-min-db", type=float, default=8.0,
                         help="CFAR floor in dB; measurements are recorded down to this (default: 8).")
     parser.add_argument("--seed", type=int, default=20220606,
@@ -72,7 +72,7 @@ def main() -> None:
     print(f"\nradar equation ({sc.rcs_ref_m2:g} m^2 target, "
           f"{sc.snr_ref_db:g} dB @ {sc.range_ref_m / 1000:g} km, R^-4):")
     print(f"  {'range':>8} | {'mean SNR':>9} | {'Pd @ floor':>10}")
-    for r_km in (20, 40, 60, 80):
+    for r_km in (40, 80, 120, 160, 200):
         snr_db = 10 * np.log10(sc.snr_mean_lin(r_km * 1000.0))
         print(f"  {r_km:>5} km | {snr_db:>6.1f} dB | {float(sc.pd(r_km * 1000.0)):>10.3f}")
 

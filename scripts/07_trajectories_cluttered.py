@@ -93,7 +93,9 @@ def main() -> None:
     print(f"  measurement noise sigmas reproduced ({r_std:.1f} m, {az_std:.3f} deg): OK")
 
     date, _ = day_files[PLOT_DAY_INDEX]
-    dets0 = results[PLOT_DAY_INDEX]["_dets"]
+    # read the plot day's FULL detections from disk (in-memory _dets keeps
+    # only targets to bound memory at long range); one day is cheap.
+    dets0 = pd.read_csv(os.path.join(output_dir, f"radar_detections_{date}.csv"))
     scan_t0, _ = scan_grid[date]
     k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
     plot_detection_window(
