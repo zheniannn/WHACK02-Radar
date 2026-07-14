@@ -68,12 +68,12 @@ def _panel(ax, sc, r_km_target, snr_db, az_deg, scan_idx, label, seed, floor_db)
         ax.spines[sp].set_visible(False)
 
 
-def plot_full_flight(sc, a, out_path):
-    """The whole flight in one image: the aircraft's echo power vs range across
-    every scan of its track, with the radar-equation mean curve and the CFAR
-    floors. Shows the continuous fade and where the echo drops below each
-    threshold -- the two side-by-side A-scopes are just two vertical slices
-    of this."""
+def plot_full_flight(sc, a, out_path, floor_db):
+    """The whole flight in one image: the aircraft's echo power vs range
+    (distance) across every scan of its track, with the radar-equation mean
+    curve and the CFAR floor at floor_db. Per-scan Swerling draws are marked
+    detected/missed against floor_db, so the 5 dB and 8 dB versions differ in
+    how far out the aircraft stays detectable."""
     rng = np.random.default_rng(sc.seed)
     r_km = a["true_range_m"].to_numpy() / 1000
     snr_lin = 10 ** (a["snr_mean_db"].to_numpy() / 10)
@@ -83,38 +83,40 @@ def plot_full_flight(sc, a, out_path):
 
     order = np.argsort(r_km)
     rr, mm = r_km[order], mean_db[order]
-    detected = draw_db >= 8.0
+    detected = draw_db >= floor_db
 
     fig, ax = plt.subplots(figsize=(11, 6))
     ax.scatter(r_km[detected], draw_db[detected], s=14, color=C_TARGET, alpha=0.7,
-               lw=0, zorder=3, label="detected (Swerling draw, ≥ 8 dB)")
+               lw=0, zorder=3, label=f"detected (Swerling draw ≥ {floor_db:g} dB)")
     ax.scatter(r_km[~detected], draw_db[~detected], s=14, facecolor="none",
-               edgecolor=MUTED, lw=0.7, zorder=3, label="missed (< 8 dB)")
+               edgecolor=MUTED, lw=0.7, zorder=3, label=f"missed (< {floor_db:g} dB)")
     ax.plot(rr, mm, color=INK, lw=1.8, zorder=4, label="mean echo (radar equation)")
 
-    for db, ls, txt in ((8.0, "--", "CFAR floor 8 dB"), (5.0, "--", "CFAR floor 5 dB"),
-                        (13.0, ":", "conventional ~13 dB")):
-        ax.axhline(db, color=INK2, lw=1.1, ls=ls, zorder=2)
-        ax.annotate(txt, (sc.range_max_m / 1000 * 0.99, db + 0.6), color=INK2,
-                    fontsize=8, ha="right")
+    ax.axhline(floor_db, color=INK, lw=1.4, ls="--", zorder=2)
+    ax.annotate(f"CFAR floor {floor_db:g} dB", (sc.range_max_m / 1000 * 0.99, floor_db + 0.6),
+                color=INK, fontsize=9, ha="right")
+    ax.axhline(13.0, color=INK2, lw=1.1, ls=":", zorder=2)
+    ax.annotate("conventional ~13 dB", (sc.range_max_m / 1000 * 0.99, 13.6),
+                color=INK2, fontsize=8, ha="right")
 
-    # Range at which the mean echo crosses each floor.
-    for floor in (8.0, 5.0):
-        below = np.where(mm < floor)[0]
-        if below.size:
-            rc = rr[below[0]]
-            ax.axvline(rc, color=GRID, lw=1, zorder=1)
-            ax.annotate(f"{rc:.0f} km", (rc, -18), color=INK2, fontsize=8, ha="center")
+    # Range at which the mean echo crosses this floor (the detection horizon).
+    below = np.where(mm < floor_db)[0]
+    if below.size:
+        rc = rr[below[0]]
+        ax.axvline(rc, color=GRID, lw=1.2, zorder=1)
+        ax.annotate(f"mean drops below {floor_db:g} dB\nat {rc:.0f} km", (rc, 40),
+                    color=INK2, fontsize=9, ha="center")
 
     ax.set_xlim(0, sc.range_max_m / 1000 * 1.02); ax.set_ylim(-20, 50)
-    ax.set_xlabel("range (km)"); ax.set_ylabel("received power over mean noise (dB)")
+    ax.set_xlabel("range / distance (km)"); ax.set_ylabel("received power over mean noise (dB)")
     leg = ax.legend(loc="upper right", frameon=False, fontsize=9)
     for t in leg.get_texts():
         t.set_color(INK2)
     dur = (a["scan_idx"].max() - a["scan_idx"].min()) * sc.scan_period_s / 60
-    ax.set_title(f"Full flight A-scope -- {AIRCRAFT} ({DATE})\n"
-                 f"one aircraft, {len(a)} scans over {dur:.0f} min: echo fades with range "
-                 "and drops below the floor near 75 km", color=INK)
+    ax.set_title(f"Full-flight echo vs distance at a {floor_db:g} dB CFAR floor "
+                 f"-- {AIRCRAFT} ({DATE})\n"
+                 f"one aircraft, {len(a)} scans over {dur:.0f} min: echo fades with range",
+                 color=INK)
     fig.tight_layout()
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, dpi=150); plt.close(fig)
@@ -128,8 +130,10 @@ def main() -> None:
     if a.empty:
         raise SystemExit(f"{TRAJECTORY_ID} not in {DATE} beam crossings")
 
-    plot_full_flight(sc, a, os.path.join(get_plot_dir(), "stage05_ascope_full_flight.png"))
-    print(f"full-flight A-scope -> {os.path.join(get_plot_dir(), 'stage05_ascope_full_flight.png')}")
+    for floor_db in FLOORS_DB:
+        p = os.path.join(get_plot_dir(), f"stage05_ascope_{floor_db:g}db_distance.png")
+        plot_full_flight(sc, a, p, floor_db)
+        print(f"full-flight A-scope ({floor_db:g} dB) -> {p}")
 
     picks = []
     for target_km in (NEAR_KM, FAR_KM):

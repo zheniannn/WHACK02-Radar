@@ -106,10 +106,12 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   (10 dB), between the 8 dB floor and the conventional 13 dB. Generated at
   both an 8 dB and a 5 dB CFAR floor (`stage05_ascope_8db.png`,
   `stage05_ascope_5db.png`) so the effect of lowering the floor is visible.
-  A companion `stage05_ascope_full_flight.png` traces the same aircraft's
-  echo across ALL its ranges (mean radar-equation curve + per-scan
-  Swerling draws, detected vs missed) -- the whole fade in one image,
-  of which the two side-by-side A-scopes are vertical slices.
+  Companion full-flight figures (`stage05_ascope_8db_distance.png`,
+  `stage05_ascope_5db_distance.png`) trace the same aircraft's echo across
+  ALL its ranges (mean radar-equation curve + per-scan Swerling draws,
+  detected vs missed at that floor) -- the whole fade in one image, of which
+  the side-by-side A-scopes are vertical slices. The 5 dB version keeps the
+  aircraft detectable ~20 km farther out than the 8 dB version.
 
 CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 
