@@ -104,7 +104,7 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   its echo across all ranges (mean radar-equation curve + per-scan Swerling
   draws, detected vs missed) against the Exp(1) noise floor -- the 5 dB
   version keeps it detectable ~20 km farther out (to ~98 vs ~78 km).
-  `3_flight_track.png` shows its ground track on a PPI, blue inside the 75 km
+  `3_flight_ppi.png` shows its ground track on a PPI, blue inside the 75 km
   detection horizon and grey beyond -- where along the real flight the radar
   loses it.
 
