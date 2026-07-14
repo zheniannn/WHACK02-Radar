@@ -100,11 +100,11 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
 - The **detection figures** are data-derived (built by this stage after the
   scenario, using the beam-crossing cache): a real 2022-06-06 flight,
   N118AT (Piper PA-44-180 Seminole), outbound 8 → 200 km.
-  `stage05_ascope_8db_distance.png` / `stage05_ascope_5db_distance.png` trace
+  `03_ascope_8db_distance.png` / `03_ascope_5db_distance.png` trace
   its echo across all ranges (mean radar-equation curve + per-scan Swerling
   draws, detected vs missed) against the Exp(1) noise floor -- the 5 dB
   version keeps it detectable ~20 km farther out (to ~98 vs ~78 km).
-  `stage05_flight.png` shows its ground track on a PPI, blue inside the 75 km
+  `03_flight.png` shows its ground track on a PPI, blue inside the 75 km
   detection horizon and grey beyond -- where along the real flight the radar
   loses it.
 

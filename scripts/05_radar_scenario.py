@@ -10,11 +10,11 @@ here also warms the deterministic cache that stages 6-9 share.
 
 Outputs:
   scenario.json
-  stage05_ascope_8db_distance.png / stage05_ascope_5db_distance.png
+  03_ascope_8db_distance.png / 03_ascope_5db_distance.png
       echo power vs range across the whole flight (mean radar-equation curve
       + per-scan Swerling draws, detected/missed) against the Exp(1) noise
       floor, at each CFAR floor.
-  stage05_flight.png
+  03_flight.png
       the aircraft's ground track on a PPI, blue inside the detection
       horizon and grey beyond.
 
@@ -199,9 +199,9 @@ def make_detection_figures(sc, input_dir):
         print(f"(reference flight {TRAJECTORY_ID} not in coverage; skipping figures)")
         return
     for floor_db in FLOORS_DB:
-        plot_full_flight(sc, a, os.path.join(get_plot_dir(), f"stage05_ascope_{floor_db:g}db_distance.png"),
+        plot_full_flight(sc, a, os.path.join(get_plot_dir(), f"03_ascope_{floor_db:g}db_distance.png"),
                          floor_db)
-    plot_flight_track(sc, a, os.path.join(get_plot_dir(), "stage05_flight.png"))
+    plot_flight_track(sc, a, os.path.join(get_plot_dir(), "03_flight.png"))
     print(f"detection figures ({AIRCRAFT}, {len(a)} scans "
           f"{a.true_range_m.min()/1000:.0f}-{a.true_range_m.max()/1000:.0f} km) -> {get_plot_dir()}")
 
