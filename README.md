@@ -127,7 +127,7 @@ is fully deterministic, so it's computed once into
 15 dB.** Fluctuation, measurement noise, false alarms, and clutter are all
 off; 15 dB always clears the 8 dB floor, so every in-coverage beam
 crossing is recorded exactly. The output is the pure per-scan radar view
-of the trajectories, and the PPI figure shows clean tracks.
+of the trajectories, and the PPI figure shows clean tracks. B-scope and RTI figures are also emitted -- the clean 'before' to stage 7's contaminated versions.
 
 Gate: every crossing detected; targets only; measurements identical to
 truth; `snr_db` exactly 15.
