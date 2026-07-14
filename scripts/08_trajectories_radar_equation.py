@@ -95,8 +95,7 @@ def main() -> None:
         results[PLOT_DAY_INDEX]["_dets"], k0, None, sc.range_max_m / 1000,
         f"Stage 8 — radar-equation SNR, no clutter or noise ({date}, full day)\n"
         "clean tracks end exactly at the deterministic detection horizon",
-        os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"),
-        horizon_km=horizon_m / 1000)
+        os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"))
     print(f"plot written to: {os.path.join(get_plot_dir(), f'stage08_trajectories_{date}.png')}")
 
     print("\n08_trajectories_radar_equation completed successfully.")
