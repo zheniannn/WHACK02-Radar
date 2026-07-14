@@ -75,7 +75,7 @@ def main() -> None:
         results[PLOT_DAY_INDEX]["_dets"], k0, None, sc.range_max_m / 1000,
         f"Stage 6 — trajectories only, fixed SNR {sc.snr_ref_db:g} dB ({date}, full day)\n"
         "no clutter, no noise: the clean radar view",
-        os.path.join(get_plot_dir(), f"stage06_trajectories_{date}.png"), target_s=1.5)
+        os.path.join(get_plot_dir(), f"stage06_trajectories_{date}.png"), target_s=0.5)
     print(f"plot written to: {os.path.join(get_plot_dir(), f'stage06_trajectories_{date}.png')}")
 
     print("\n06_trajectories_clean completed successfully.")

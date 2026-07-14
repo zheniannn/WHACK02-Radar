@@ -121,8 +121,8 @@ def plot_coverage(truth: pd.DataFrame, range_max_km: float, horizon_km: float,
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     _ppi_axes(ax, range_max_km)
     for d, color, s, alpha, z, lab in (
-        (und, C_NOISE, 1.2, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
-        (det, C_TARGET, 1.2, 0.9, 4, f"detected ({len(det):,})"),
+        (und, C_NOISE, 0.5, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
     ):
         dd, _ = _source_rows(d.assign(source="_"), "_")
         if dd.empty:
