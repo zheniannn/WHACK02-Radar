@@ -201,7 +201,7 @@ def make_detection_figures(sc, input_dir):
     for floor_db in FLOORS_DB:
         plot_full_flight(sc, a, os.path.join(get_plot_dir(), f"3_ascope_{floor_db:g}db_distance.png"),
                          floor_db)
-    plot_flight_track(sc, a, os.path.join(get_plot_dir(), "3_flight.png"))
+    plot_flight_track(sc, a, os.path.join(get_plot_dir(), "3_flight_track.png"))
     print(f"detection figures ({AIRCRAFT}, {len(a)} scans "
           f"{a.true_range_m.min()/1000:.0f}-{a.true_range_m.max()/1000:.0f} km) -> {get_plot_dir()}")
 
