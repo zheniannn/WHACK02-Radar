@@ -22,6 +22,7 @@ WHACK02-Radar/
 ├── requirements.txt
 ├── scripts/
 │   ├── 05_radar_scenario.py          # stage 5: site + radar definition -> scenario.json
+│   ├── 05b_real_ascope.py            # A-scope from a real flight (N118AT), 8/5 dB floors
 │   ├── 06_trajectories_clean.py      # stage 6: trajectories only, fixed SNR, no clutter/noise
 │   ├── 07_trajectories_cluttered.py  # stage 7: fixed SNR + clutter + noise
 │   ├── 08_trajectories_radar_equation.py # stage 8: radar-equation SNR, no clutter/noise
@@ -67,14 +68,15 @@ repository (override with `WHACK_DATA_ROOT`).
 ```bash
 python scripts/05_radar_scenario.py
 python scripts/06_trajectories_clean.py
+python scripts/05b_real_ascope.py            # A-scope from a real flight (needs beam crossings)
 python scripts/07_trajectories_cluttered.py
 python scripts/08_trajectories_radar_equation.py
 python scripts/09_radar_equation_cluttered.py
 ```
 
-Whichever of stages 6–9 runs first computes the beam-crossing cache; the
-others reuse it (a fingerprint sidecar recomputes it automatically if the
-scenario's geometry changes).
+Whichever of stages 6–9 (or 05b) runs first computes the beam-crossing
+cache; the others reuse it (a fingerprint sidecar recomputes it
+automatically if the scenario's geometry changes).
 
 ---
 
