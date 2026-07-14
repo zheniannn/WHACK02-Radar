@@ -40,6 +40,9 @@ def parse_args():
     parser.add_argument("--input-dir", type=str, default=None)
     parser.add_argument("--output-dir", type=str, default=None,
                         help="Output dir (default: active/radar/stage08).")
+    parser.add_argument("--threshold-min-db", type=float, default=None,
+                        help="Override the scenario CFAR floor for this run "
+                             "(e.g. 0 to extend the detection horizon).")
     return parser.parse_args()
 
 
@@ -50,6 +53,8 @@ def _fail(message: str) -> None:
 def main() -> None:
     args = parse_args()
     sc = Scenario.load(args.scenario or get_scenario_path())
+    if args.threshold_min_db is not None:
+        sc.threshold_min_db = args.threshold_min_db
     output_dir = args.output_dir or get_stage_dir(8)
 
     day_files, scan_grid = ensure_beam_crossings(

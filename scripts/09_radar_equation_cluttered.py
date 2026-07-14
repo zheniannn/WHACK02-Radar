@@ -50,6 +50,10 @@ def parse_args():
                         help="Output dir (default: active/radar/stage09).")
     parser.add_argument("--seed", type=int, default=None,
                         help="Override the scenario seed (Monte-Carlo repetitions).")
+    parser.add_argument("--threshold-min-db", type=float, default=None,
+                        help="Override the scenario CFAR floor (WARNING: below ~6 dB the "
+                             "false-alarm count explodes; use scripts/09b_zero_db_window.py "
+                             "for the 0 dB illustration).")
     return parser.parse_args()
 
 
@@ -74,6 +78,8 @@ def main() -> None:
     sc = Scenario.load(args.scenario or get_scenario_path())
     if args.seed is not None:
         sc.seed = args.seed
+    if args.threshold_min_db is not None:
+        sc.threshold_min_db = args.threshold_min_db
     output_dir = args.output_dir or get_stage_dir(9)
 
     day_files, scan_grid = ensure_beam_crossings(
