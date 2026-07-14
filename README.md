@@ -22,7 +22,7 @@ WHACK02-Radar/
 ├── requirements.txt
 ├── scripts/
 │   ├── 05_radar_scenario.py          # stage 5: site + radar definition -> scenario.json
-│   ├── 05b_real_ascope.py            # A-scope from a real flight (N118AT), 8/5 dB floors
+│   ├── 05b_real_ascope.py            # real-flight detection figures (N118AT): echo-vs-distance + ground track
 │   ├── 06_trajectories_clean.py      # stage 6: trajectories only, fixed SNR, no clutter/noise
 │   ├── 07_trajectories_cluttered.py  # stage 7: fixed SNR + clutter + noise
 │   ├── 08_trajectories_radar_equation.py # stage 8: radar-equation SNR, no clutter/noise
@@ -99,22 +99,16 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   SNR 12 dB, within 40 km.
 - Everything is frozen into `scenario.json` with the RNG seed; all later
   stages are reproducible functions of that file.
-- The **A-scope** figures are data-derived (see
+- The **detection figures** are data-derived (see
   `scripts/05b_real_ascope.py`, run after stage 6): a real 2022-06-06 flight,
-  N118AT (Piper PA-44-180 Seminole), shown at two scans of its own outbound
-  track -- strong at 25 km (27 dB) and, 14 min later, marginal at 68 km
-  (10 dB), between the 8 dB floor and the conventional 13 dB. Generated at
-  both an 8 dB and a 5 dB CFAR floor (`stage05_ascope_8db.png`,
-  `stage05_ascope_5db.png`) so the effect of lowering the floor is visible.
-  Companion full-flight figures (`stage05_ascope_8db_distance.png`,
-  `stage05_ascope_5db_distance.png`) trace the same aircraft's echo across
-  ALL its ranges (mean radar-equation curve + per-scan Swerling draws,
-  detected vs missed at that floor) -- the whole fade in one image, of which
-  the side-by-side A-scopes are vertical slices. The 5 dB version keeps the
-  aircraft detectable ~20 km farther out than the 8 dB version.
-  `stage05_flight.png` shows the same aircraft's ground track on a PPI,
-  blue inside the 75 km detection horizon and grey beyond -- where
-  along the real flight the radar loses it.
+  N118AT (Piper PA-44-180 Seminole), outbound 8 → 200 km.
+  `stage05_ascope_8db_distance.png` / `stage05_ascope_5db_distance.png` trace
+  its echo across all ranges (mean radar-equation curve + per-scan Swerling
+  draws, detected vs missed) against the Exp(1) noise floor -- the 5 dB
+  version keeps it detectable ~20 km farther out (to ~98 vs ~78 km).
+  `stage05_flight.png` shows its ground track on a PPI, blue inside the 75 km
+  detection horizon and grey beyond -- where along the real flight the radar
+  loses it.
 
 CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 
