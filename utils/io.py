@@ -47,5 +47,5 @@ def get_stage_dir(stage: int) -> str:
 
 
 def get_plot_dir() -> str:
-    """Figures directory (shared with WHACK01's plots)."""
-    return os.path.join(get_data_root(), "plot")
+    """Figures directory (isolated under plot/WHACK02-Radar/)."""
+    return os.path.join(get_data_root(), "plot", "WHACK02-Radar")
