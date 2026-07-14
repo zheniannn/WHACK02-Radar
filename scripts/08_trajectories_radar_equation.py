@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_stage_dir, get_trajectories_dir
 from utils.measurements import MeasurementConfig, run_days
-from utils.plots import densest_window, plot_detection_window
+from utils.plots import plot_detection_window
 from utils.scenario import Scenario
 
 PLOT_DAY_INDEX = 0
@@ -90,10 +90,10 @@ def main() -> None:
           f"{sc.range_max_m / 1000:.0f} km)")
 
     date, _ = day_files[PLOT_DAY_INDEX]
-    k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
+    k0 = 0   # full day
     plot_detection_window(
-        results[PLOT_DAY_INDEX]["_dets"], k0, 90, sc.range_max_m / 1000,
-        f"Stage 8 — radar-equation SNR, no clutter or noise ({date}, 15 min)\n"
+        results[PLOT_DAY_INDEX]["_dets"], k0, None, sc.range_max_m / 1000,
+        f"Stage 8 — radar-equation SNR, no clutter or noise ({date}, full day)\n"
         "clean tracks end exactly at the deterministic detection horizon",
         os.path.join(get_plot_dir(), f"stage08_trajectories_{date}.png"),
         horizon_km=horizon_m / 1000)

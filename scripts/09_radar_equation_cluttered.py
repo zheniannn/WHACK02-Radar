@@ -163,20 +163,20 @@ def main() -> None:
     # only targets to bound memory at long range); one day is cheap.
     dets0 = pd.read_csv(os.path.join(output_dir, f"radar_detections_{date}.csv"))
     scan_t0, _ = scan_grid[date]
-    k0 = densest_window(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
+    k0 = 0   # full day
     plot_detection_window(
-        dets0, k0, 90, sc.range_max_m / 1000,
-        f"Stage 9 — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
+        dets0, k0, None, sc.range_max_m / 1000,
+        f"Stage 9 — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "same window as stages 6-8; distant tracks fade and contamination is on",
         os.path.join(get_plot_dir(), f"stage09_trajectories_{date}.png"))
     plot_bscope(
-        dets0, k0, 90, sc.range_max_m / 1000,
-        f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, 15 min)\n"
+        dets0, k0, None, sc.range_max_m / 1000,
+        f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "the radar's native frame: targets drift, clutter pins to a fixed cell",
         os.path.join(get_plot_dir(), f"stage09_bscope_{date}.png"))
     plot_rti(
-        dets0, k0, 360, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
-        f"Stage 9 RTI — radar-equation SNR with clutter and noise ({date}, 60 min)\n"
+        dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
+        f"Stage 9 RTI — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "targets slope and fade with range; clutter draws flat lines; noise speckles",
         os.path.join(get_plot_dir(), f"stage09_rti_{date}.png"))
     plot_max_range(truth, track_table, sc, r50_emp, drop50, GAP_SCANS,

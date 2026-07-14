@@ -46,6 +46,27 @@ def _ppi_axes(ax, range_max_km):
     ax.annotate("radar", (0, -range_max_km * 0.05), color=INK2, fontsize=9, ha="center", va="top")
 
 
+MAX_PLOT_POINTS = 300_000   # per-source render cap; noise beyond this is subsampled
+
+
+def _select_window(dets, k0, window_scans):
+    """Rows in scans [k0, k0+window_scans), or ALL rows if window_scans is
+    None (the full day)."""
+    if window_scans is None:
+        return dets
+    return dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
+
+
+def _source_rows(win, src):
+    """Rows of one source, subsampled for rendering if huge. Returns
+    (rows_to_plot, true_count) -- the legend keeps the true count."""
+    d = win[win["source"] == src]
+    n = len(d)
+    if n > MAX_PLOT_POINTS:
+        d = d.sample(MAX_PLOT_POINTS, random_state=0)
+    return d, n
+
+
 def densest_window(crossings_path: str, window_scans: int = 90) -> int:
     """First scan index of the busiest window of beam crossings -- computed
     from stage 6's deterministic geometry so every stage plots the same
@@ -59,9 +80,9 @@ def densest_window(crossings_path: str, window_scans: int = 90) -> int:
 def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
                           range_max_km: float, title: str, out_path: str,
                           horizon_km: float = None) -> None:
-    """PPI scatter of all detections in scans [k0, k0+window_scans).
-    horizon_km draws a dotted ring (e.g. a deterministic detection horizon)."""
-    win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
+    """PPI scatter of all detections in scans [k0, k0+window_scans), or the
+    full day if window_scans is None. horizon_km draws a dotted ring."""
+    win = _select_window(dets, k0, window_scans)
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     _ppi_axes(ax, range_max_km)
     if horizon_km is not None:
@@ -72,12 +93,12 @@ def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
     for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
                                     ("clutter", C_CLUTTER, 5, 0.8, 4),
                                     ("target", C_TARGET, 5, 0.9, 5)):
-        d = win[win["source"] == src]
+        d, n_true = _source_rows(win, src)
         if d.empty:
             continue
         e, n = _en_km(d["range_m"].to_numpy(), d["azimuth_deg"].to_numpy())
         ax.scatter(e, n, s=s, color=color, alpha=alpha, lw=0, zorder=z,
-                   label=f"{src} ({len(d):,})")
+                   rasterized=True, label=f"{src} ({n_true:,})")
     leg = ax.legend(loc="upper left", frameon=False, fontsize=9, markerscale=3)
     for t in leg.get_texts():
         t.set_color(INK2)
@@ -90,18 +111,18 @@ def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
 
 def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
                 range_max_km: float, title: str, out_path: str) -> None:
-    """B-scope (range vs azimuth) of all detections in scans
-    [k0, k0+window_scans) -- the radar's native measurement frame."""
-    win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
+    """B-scope (range vs azimuth) of detections in scans [k0, k0+window_scans),
+    or the full day if window_scans is None -- the radar's native frame."""
+    win = _select_window(dets, k0, window_scans)
     fig, ax = plt.subplots(figsize=(10, 5.5))
     for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
                                     ("clutter", C_CLUTTER, 6, 0.85, 4),
                                     ("target", C_TARGET, 5, 0.9, 5)):
-        d = win[win["source"] == src]
+        d, n_true = _source_rows(win, src)
         if d.empty:
             continue
         ax.scatter(d["azimuth_deg"], d["range_m"] / 1000, s=s, color=color,
-                   alpha=alpha, lw=0, zorder=z, label=f"{src} ({len(d):,})")
+                   alpha=alpha, lw=0, zorder=z, rasterized=True, label=f"{src} ({n_true:,})")
     ax.set_xlim(0, 360); ax.set_ylim(0, range_max_km * 1.02)
     ax.set_xticks(range(0, 361, 45))
     ax.set_xlabel("azimuth (deg)"); ax.set_ylabel("range (km)")
@@ -124,18 +145,20 @@ def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
     rate, stationary clutter draws dead-flat horizontal lines, and noise
     speckles uniformly.
     """
-    win = dets[(dets["scan_idx"] >= k0) & (dets["scan_idx"] < k0 + window_scans)]
-    t_start = scan_t0 + k0 * scan_period_s
+    win = _select_window(dets, k0, window_scans)
+    t_start = scan_t0 + (k0 if window_scans is not None else 0) * scan_period_s
     fig, ax = plt.subplots(figsize=(10, 5.5))
     for src, color, s, alpha, z in (("noise", C_NOISE, 1.5, 0.25, 2),
                                     ("clutter", C_CLUTTER, 4, 0.8, 4),
                                     ("target", C_TARGET, 4, 0.9, 5)):
-        d = win[win["source"] == src]
+        d, n_true = _source_rows(win, src)
         if d.empty:
             continue
         ax.scatter((d["t"] - t_start) / 60.0, d["range_m"] / 1000, s=s, color=color,
-                   alpha=alpha, lw=0, zorder=z, label=f"{src} ({len(d):,})")
-    ax.set_xlim(0, window_scans * scan_period_s / 60.0)
+                   alpha=alpha, lw=0, zorder=z, rasterized=True, label=f"{src} ({n_true:,})")
+    xmax = window_scans * scan_period_s / 60.0 if window_scans is not None \
+        else (win["t"].max() - t_start) / 60.0
+    ax.set_xlim(0, xmax)
     ax.set_ylim(0, range_max_km * 1.02)
     ax.set_xlabel("time (min)"); ax.set_ylabel("range (km)")
     leg = ax.legend(loc="upper right", frameon=False, fontsize=9, markerscale=3)
