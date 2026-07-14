@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_stage_dir, get_trajectories_dir
 from utils.measurements import MeasurementConfig, run_days
-from utils.plots import plot_coverage
+from utils.plots import plot_bscope, plot_coverage, plot_rti
 from utils.scenario import Scenario
 
 PLOT_DAY_INDEX = 0
@@ -90,12 +90,25 @@ def main() -> None:
           f"{sc.range_max_m / 1000:.0f} km)")
 
     date, _ = day_files[PLOT_DAY_INDEX]
+    dets0 = results[PLOT_DAY_INDEX]["_dets"]
+    scan_t0, _ = scan_grid[date]
+    k0 = 0   # full day
     plot_coverage(
         results[PLOT_DAY_INDEX]["_truth"], sc.range_max_m / 1000, horizon_m / 1000,
-        f"Stage 8 — truth vs detected ({date}, full day)\n"
+        f"Stage 8 PPI — truth vs detected ({date}, full day)\n"
         "aircraft ARE out to 200 km; the radar only detects inside the horizon",
         os.path.join(get_plot_dir(), f"stage08_PPI_{date}.png"))
-    print(f"PPI written to: {get_plot_dir()}")
+    plot_bscope(
+        dets0, k0, None, sc.range_max_m / 1000,
+        f"Stage 8 B-scope — radar-equation SNR, clean ({date}, full day)\n"
+        f"detected targets only, out to the {horizon_m/1000:.0f} km horizon",
+        os.path.join(get_plot_dir(), f"stage08_bscope_{date}.png"))
+    plot_rti(
+        dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
+        f"Stage 8 RTI — radar-equation SNR, clean ({date}, full day)\n"
+        f"detected targets fade out at the {horizon_m/1000:.0f} km horizon; no contamination",
+        os.path.join(get_plot_dir(), f"stage08_rti_{date}.png"))
+    print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n08_trajectories_radar_equation completed successfully.")
 
