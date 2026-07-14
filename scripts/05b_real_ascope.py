@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_trajectories_dir
-from utils.plots import C_CLUTTER, C_TARGET, GRID, INK, INK2, MUTED
+from utils.plots import C_CLUTTER, C_NOISE, C_TARGET, GRID, INK, INK2, MUTED
 from utils.scenario import Scenario
 
 DATE = "2022-06-06"
@@ -85,12 +85,24 @@ def plot_full_flight(sc, a, out_path, floor_db):
     rr, mm = r_km[order], mean_db[order]
     detected = draw_db >= floor_db
 
+    # Noise cells: Exp(1) power, range-independent, spread across the display.
+    # These are the background the echo competes against; the ones above the
+    # floor are the false alarms that the CFAR floor admits.
+    n_noise = 5000
+    noise_r = rng.uniform(sc.range_min_m / 1000, sc.range_max_m / 1000, n_noise)
+    noise_db = 10 * np.log10(rng.exponential(1.0, n_noise))
+    fa = noise_db >= floor_db
+
     fig, ax = plt.subplots(figsize=(11, 6))
-    ax.scatter(r_km[detected], draw_db[detected], s=14, color=C_TARGET, alpha=0.7,
-               lw=0, zorder=3, label=f"detected (Swerling draw ≥ {floor_db:g} dB)")
-    ax.scatter(r_km[~detected], draw_db[~detected], s=14, facecolor="none",
-               edgecolor=MUTED, lw=0.7, zorder=3, label=f"missed (< {floor_db:g} dB)")
-    ax.plot(rr, mm, color=INK, lw=1.8, zorder=4, label="mean echo (radar equation)")
+    ax.scatter(noise_r[~fa], noise_db[~fa], s=3, color=C_NOISE, alpha=0.18, lw=0,
+               zorder=1, label="noise cells")
+    ax.scatter(noise_r[fa], noise_db[fa], s=8, color=C_NOISE, alpha=0.7, lw=0,
+               zorder=2, label=f"noise false alarms (≥ {floor_db:g} dB): {int(fa.sum())}/{n_noise}")
+    ax.scatter(r_km[detected], draw_db[detected], s=16, color=C_TARGET, alpha=0.8,
+               lw=0, zorder=4, label=f"aircraft detected (≥ {floor_db:g} dB)")
+    ax.scatter(r_km[~detected], draw_db[~detected], s=16, facecolor="none",
+               edgecolor=C_TARGET, lw=0.8, zorder=4, label=f"aircraft missed (< {floor_db:g} dB)")
+    ax.plot(rr, mm, color=INK, lw=1.8, zorder=5, label="mean echo (radar equation)")
 
     ax.axhline(floor_db, color=INK, lw=1.4, ls="--", zorder=2)
     ax.annotate(f"CFAR floor {floor_db:g} dB", (sc.range_max_m / 1000 * 0.99, floor_db + 0.6),
