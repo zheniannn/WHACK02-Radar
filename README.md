@@ -112,6 +112,9 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   detected vs missed at that floor) -- the whole fade in one image, of which
   the side-by-side A-scopes are vertical slices. The 5 dB version keeps the
   aircraft detectable ~20 km farther out than the 8 dB version.
+  `stage05_flight.png` shows the same aircraft's ground track on a PPI,
+  blue inside the 75 km detection horizon and grey beyond -- where
+  along the real flight the radar loses it.
 
 CLI: `--range-max-km`, `--threshold-min-db`, `--seed`, `--input-dir`, `--output`.
 

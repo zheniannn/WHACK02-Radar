@@ -134,6 +134,58 @@ def plot_full_flight(sc, a, out_path, floor_db):
     fig.savefig(out_path, dpi=150); plt.close(fig)
 
 
+def plot_flight_track(sc, a, out_path, floor_db=8.0):
+    """The aircraft's ground track on a PPI, relative to the radar. Points are
+    coloured by whether the mean echo clears the CFAR floor at that range
+    (inside vs beyond the detection horizon), so you see where along the real
+    flight the radar loses it."""
+    az = np.radians(a["true_azimuth_deg"].to_numpy())
+    r = a["true_range_m"].to_numpy() / 1000
+    e, n = r * np.sin(az), r * np.cos(az)
+    snr_lin = 10 ** (a["snr_mean_db"].to_numpy() / 10)
+    inside = 10 * np.log10(1 + snr_lin) >= floor_db
+    horizon = sc.range_ref_m * (10 ** (sc.snr_ref_db / 10) / sc.threshold_lin(floor_db)) ** 0.25 / 1000
+
+    fig, ax = plt.subplots(figsize=(8.5, 8.5))
+    rmax = sc.range_max_m / 1000
+    for ring in (40, 80, 120, 160, 200):
+        if ring <= rmax:
+            ax.add_patch(plt.Circle((0, 0), ring, fill=False, color=GRID, lw=0.8, zorder=1))
+            ax.annotate(f"{ring} km", (0, ring), color=MUTED, fontsize=8, ha="center", va="bottom")
+    ax.add_patch(plt.Circle((0, 0), horizon, fill=False, color=INK, lw=1.2, ls=":", zorder=2))
+    ax.annotate(f"{floor_db:g} dB detection horizon {horizon:.0f} km",
+                (0, -horizon - 4), color=INK, fontsize=9, ha="center", va="top")
+
+    ax.plot(e, n, color=GRID, lw=0.8, zorder=2)
+    ax.scatter(e[inside], n[inside], s=14, color=C_TARGET, lw=0, zorder=4,
+               label=f"echo ≥ {floor_db:g} dB (detectable)")
+    ax.scatter(e[~inside], n[~inside], s=14, facecolor="none", edgecolor=MUTED, lw=0.7,
+               zorder=4, label=f"echo < {floor_db:g} dB (below floor)")
+    ax.plot(e[0], n[0], marker="o", color="#1baf7a", ms=11, zorder=6)
+    ax.annotate("start", (e[0], n[0]), color=INK2, fontsize=9, ha="left", va="bottom")
+    ax.plot(e[-1], n[-1], marker="s", color="#e34948", ms=10, zorder=6)
+    ax.annotate("end", (e[-1], n[-1]), color=INK2, fontsize=9, ha="left", va="top")
+    ax.plot(0, 0, marker="^", color=INK, ms=11, zorder=6)
+    ax.annotate("radar", (0, -rmax * 0.04), color=INK2, fontsize=9, ha="center", va="top")
+
+    lim = rmax * 1.1
+    ax.set_aspect("equal"); ax.set_xlim(-lim, lim); ax.set_ylim(-lim, lim)
+    ax.set_xlabel("East (km)"); ax.set_ylabel("North (km)")
+    ax.grid(False)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    leg = ax.legend(loc="upper left", frameon=False, fontsize=9, markerscale=1.4)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    dur = (a["scan_idx"].max() - a["scan_idx"].min()) * sc.scan_period_s / 60
+    ax.set_title(f"Flight track -- {AIRCRAFT} ({DATE})\n"
+                 f"outbound {r.min():.0f} → {r.max():.0f} km over {dur:.0f} min; "
+                 f"the radar loses it past the {horizon:.0f} km horizon", color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150); plt.close(fig)
+
+
 def main() -> None:
     sc = Scenario.load(get_scenario_path())
     ensure_beam_crossings(get_trajectories_dir(), get_beam_crossings_dir(), sc)
@@ -146,6 +198,10 @@ def main() -> None:
         p = os.path.join(get_plot_dir(), f"stage05_ascope_{floor_db:g}db_distance.png")
         plot_full_flight(sc, a, p, floor_db)
         print(f"full-flight A-scope ({floor_db:g} dB) -> {p}")
+
+    flight_path = os.path.join(get_plot_dir(), "stage05_flight.png")
+    plot_flight_track(sc, a, flight_path)
+    print(f"flight track -> {flight_path}")
 
     picks = []
     for target_km in (NEAR_KM, FAR_KM):
