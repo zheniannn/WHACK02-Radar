@@ -166,9 +166,9 @@ def main() -> None:
     k0 = 0   # full day
     plot_detection_window(
         dets0, k0, None, sc.range_max_m / 1000,
-        f"Stage 9 — radar-equation SNR with clutter and noise ({date}, full day)\n"
-        "same window as stages 6-8; distant tracks fade and contamination is on",
-        os.path.join(get_plot_dir(), f"stage09_trajectories_{date}.png"))
+        f"Stage 9 PPI — radar-equation SNR with clutter and noise ({date}, full day)\n"
+        "full day like stages 6-8; distant tracks fade and contamination is on",
+        os.path.join(get_plot_dir(), f"stage09_PPI_{date}.png"))
     plot_bscope(
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, full day)\n"
