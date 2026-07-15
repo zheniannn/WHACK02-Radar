@@ -143,6 +143,69 @@ def plot_coverage(truth: pd.DataFrame, range_max_km: float, horizon_km: float,
     plt.close(fig)
 
 
+def _coverage_series(truth):
+    """(undetected, detected) frames with a display grouping key, for the
+    coverage-style B-scope / RTI (which show what is THERE vs detected)."""
+    return truth[~truth["detected"]], truth[truth["detected"]]
+
+
+def plot_bscope_coverage(truth: pd.DataFrame, range_max_km: float,
+                         title: str, out_path: str) -> None:
+    """B-scope (range vs azimuth) of every in-coverage crossing, coloured
+    detected (blue) vs beyond-horizon (grey) -- the B-scope companion to the
+    coverage PPI, so it fills the full range axis."""
+    und, det = _coverage_series(truth)
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for d, color, s, alpha, z, lab in (
+        (und, C_NOISE, 0.4, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
+    ):
+        dd, _ = _source_rows(d.assign(source="_"), "_")
+        if dd.empty:
+            continue
+        ax.scatter(dd["true_azimuth_deg"], dd["true_range_m"] / 1000, s=s, color=color,
+                   alpha=alpha, lw=0, zorder=z, rasterized=True, label=lab)
+    ax.set_xlim(0, 360); ax.set_ylim(0, range_max_km * 1.02)
+    ax.set_xticks(range(0, 361, 45))
+    ax.set_xlabel("azimuth (deg)"); ax.set_ylabel("range (km)")
+    leg = ax.legend(loc="upper right", frameon=False, fontsize=9, markerscale=3)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    ax.set_title(title, color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_rti_coverage(truth: pd.DataFrame, scan_t0: float, scan_period_s: float,
+                      range_max_km: float, title: str, out_path: str) -> None:
+    """RTI (range vs time) of every in-coverage crossing, coloured detected
+    (blue) vs beyond-horizon (grey) -- the RTI companion to the coverage PPI."""
+    und, det = _coverage_series(truth)
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for d, color, s, alpha, z, lab in (
+        (und, C_NOISE, 0.4, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
+    ):
+        dd, _ = _source_rows(d.assign(source="_"), "_")
+        if dd.empty:
+            continue
+        ax.scatter((dd["t"] - scan_t0) / 60.0, dd["true_range_m"] / 1000, s=s, color=color,
+                   alpha=alpha, lw=0, zorder=z, rasterized=True, label=lab)
+    ax.set_xlim(0, (truth["t"].max() - scan_t0) / 60.0)
+    ax.set_ylim(0, range_max_km * 1.02)
+    ax.set_xlabel("time (min)"); ax.set_ylabel("range (km)")
+    leg = ax.legend(loc="upper right", frameon=False, fontsize=9, markerscale=3)
+    for t in leg.get_texts():
+        t.set_color(INK2)
+    ax.set_title(title, color=INK)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
                 range_max_km: float, title: str, out_path: str,
                 target_s: float = 0.5) -> None:
