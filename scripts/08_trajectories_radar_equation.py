@@ -96,17 +96,17 @@ def main() -> None:
         truth0, sc.range_max_m / 1000, horizon_m / 1000,
         f"Stage 8 PPI — truth vs detected ({date}, full day)\n"
         "aircraft ARE out to 200 km; the radar only detects inside the horizon",
-        os.path.join(get_plot_dir(), f"stage08_PPI_{date}.png"))
+        os.path.join(get_plot_dir(), f"6_PPI_{date}.png"))
     plot_bscope_coverage(
         truth0, sc.range_max_m / 1000,
         f"Stage 8 B-scope — truth vs detected ({date}, full day)\n"
         f"detected inside the {horizon_m/1000:.0f} km horizon; grey aircraft are there but unseen",
-        os.path.join(get_plot_dir(), f"stage08_bscope_{date}.png"))
+        os.path.join(get_plot_dir(), f"6_bscope_{date}.png"))
     plot_rti_coverage(
         truth0, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 8 RTI — truth vs detected ({date}, full day)\n"
         f"detected inside the {horizon_m/1000:.0f} km horizon; grey aircraft are there but unseen",
-        os.path.join(get_plot_dir(), f"stage08_RTI_{date}.png"))
+        os.path.join(get_plot_dir(), f"6_RTI_{date}.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n08_trajectories_radar_equation completed successfully.")

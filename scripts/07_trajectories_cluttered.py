@@ -102,17 +102,17 @@ def main() -> None:
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 7 PPI — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, full day)\n"
         f"full day like stage 6; Pd {pd_expected:.2f} uniformly, plus false alarms and clutter",
-        os.path.join(get_plot_dir(), f"stage07_PPI_{date}.png"))
+        os.path.join(get_plot_dir(), f"5_PPI_{date}.png"))
     plot_bscope(
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 7 B-scope — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, full day)\n"
         "the radar's native frame: targets drift, clutter pins to a fixed cell",
-        os.path.join(get_plot_dir(), f"stage07_bscope_{date}.png"))
+        os.path.join(get_plot_dir(), f"5_bscope_{date}.png"))
     plot_rti(
         dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 7 RTI — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, full day)\n"
         "targets slope with range rate; clutter draws flat lines; noise speckles",
-        os.path.join(get_plot_dir(), f"stage07_RTI_{date}.png"))
+        os.path.join(get_plot_dir(), f"5_RTI_{date}.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n07_trajectories_cluttered completed successfully.")

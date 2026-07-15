@@ -25,7 +25,7 @@ WHACK02-Radar/
 │   ├── 06_trajectories_clean.py      # stage 6: trajectories only, fixed SNR, no clutter/noise
 │   ├── 07_trajectories_cluttered.py  # stage 7: fixed SNR + clutter + noise
 │   ├── 08_trajectories_radar_equation.py # stage 8: radar-equation SNR, no clutter/noise
-│   └── 09_radar_equation_cluttered.py    # stage 9: radar-equation SNR + clutter + noise + max range
+│   └── 09_radar_equation_cluttered.py    # stage 9: radar-equation SNR + clutter + noise + max range + 0 dB illustration (fig 8)
 └── utils/
     ├── io.py                          # input/output path resolution
     ├── geometry.py                    # geodetic -> ENU -> range/azimuth/elevation
@@ -86,12 +86,25 @@ Defines the radar: location, settings, characteristics. Simulates nothing.
   (density = sample count = dwell time) → Phoenix/Mesa, AZ. Site elevation
   from the 1st percentile of nearby flight altitudes minus 150 m (terrain
   proxy — no DEM).
-- **Radar model**: 2D fan-beam surveillance radar, 10 s scan, 1–80 km,
-  0.3–30° elevation fan, 150 m × 1.5° resolution cells, σ_range = 50 m,
-  σ_azimuth = 0.2° (≈ beamwidth/7.5, a standard monopulse fraction).
+- **Radar model**: 2D fan-beam **S-band** (2.8 GHz, λ ≈ 10.7 cm)
+  surveillance radar, 10 s scan, 1–200 km, 0.3–30° elevation fan,
+  150 m × 1.5° resolution cells, σ_range = 50 m, σ_azimuth = 0.2°
+  (≈ beamwidth/7.5, a standard monopulse fraction).
 - **Radar physics live on the `Scenario` class**: calibrated radar
   equation (15 dB for 1 m² at 50 km, R⁻⁴), `Pfa(τ) = exp(−τ)`, Swerling-1
   `Pd = Pfa^(1/(1+SNR))`. Later stages only apply this model.
+- **The 15 dB operating anchor is derived from an S-band link budget, not
+  asserted.** Single-pulse SNR comes from the radar equation
+  `Pt·G²·λ²·σ / ((4π)³·R⁴·k·T₀·B·F·L)` with stated S-band hardware
+  (Pt = 15 kW, G = 34 dBi, f = 2.8 GHz, B = 1 MHz from the 150 m
+  resolution, NF = 4 dB); stage 5 solves the system loss (~9.3 dB, a
+  standard value) so this lands at ~0 dB single-pulse at 50 km. The PRF is
+  set so `range_max` is unambiguous (`R_u = c/2·PRF` → ~749 Hz at 200 km);
+  the beam dwells `(beamwidth/360)·scan = 41.7 ms`, giving `N ≈ 31`
+  pulses/dwell and a coherent integration gain `10·log₁₀ N ≈ 15 dB`. So
+  `snr_ref_db` (a derived property) = single-pulse SNR (~0 dB) + integration
+  gain (~15 dB) = 15 dB operating — every hardware term explicit, and the
+  horizon (74.8 km at the 8 dB floor) unchanged.
 - **Clutter map**: 25 stationary patches (positions frozen here — ground
   clutter doesn't move between days or between Monte-Carlo runs), mean
   SNR 12 dB, within 40 km.
@@ -183,6 +196,13 @@ radar equation alone, is what actually breaks tracks.
 All detections carry their measured `snr_db` down to the 8 dB floor, so
 any CFAR threshold ≥ the floor can be applied post-hoc by filtering —
 one dataset supports a full ROC sweep.
+
+**0 dB illustration (figure 8).** A full 4-day stage 9 at a 0 dB CFAR floor
+is infeasible (~117k false alarms/scan, ~1 billion/day), so stage 9 finally
+renders just the feasible subset via `zero_db_illustration()`: an exact
+full-day max-range from the truth detection pattern (the limits shift out
+with the 118.6 km horizon), plus one 15-min window where the false-alarm
+flood buries the targets (`8_0db_max_range`, `8_0db_PPI`, `8_0db_RTI`).
 
 ## Outputs (per stage, per day)
 

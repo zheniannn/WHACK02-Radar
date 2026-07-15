@@ -41,13 +41,19 @@ from utils.io import (
     get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_trajectories_dir,
 )
 from utils.plots import C_NOISE, C_TARGET, GRID, INK, INK2, MUTED
-from utils.scenario import Scenario, generate_clutter_patches, select_site
+from utils.scenario import C_M_S, Scenario, generate_clutter_patches, select_site
 
 # Reference flight for the detection figures.
 FLIGHT_DATE = "2022-06-06"
 TRAJECTORY_ID = "a049fd_1654554529_r0"
 AIRCRAFT = "N118AT  Piper PA-44-180 Seminole"
 FLOORS_DB = (8.0, 5.0)
+
+# Calibration target: the operating (post-integration) mean SNR at range_ref.
+# PRF and the scan geometry set the integration gain; the single-pulse SNR is
+# then whatever yields this operating anchor (so the anchor stays calibrated
+# but its integration component is derived from physical parameters).
+OPERATING_SNR_REF_DB = 15.0
 
 
 def parse_args():
@@ -225,6 +231,16 @@ def main() -> None:
         threshold_min_db=args.threshold_min_db,
         seed=args.seed,
     )
+    # Waveform: set the PRF so range_max is unambiguous (R_u = c / 2PRF).
+    sc.prf_hz = C_M_S / (2.0 * sc.range_max_m)
+    # S-band link budget: solve the system loss that makes the radar equation
+    # reproduce the calibrated operating anchor after integration. Single-pulse
+    # SNR is inversely proportional to loss, so in dB the required loss is the
+    # loss-free single-pulse SNR minus the target single-pulse SNR.
+    target_pulse_db = OPERATING_SNR_REF_DB - sc.integration_gain_db()
+    sc.system_loss_db = 0.0
+    sc.system_loss_db = sc.snr_pulse_ref_db - target_pulse_db
+
     sc.clutter_patches = generate_clutter_patches(sc, np.random.default_rng(sc.seed))
     sc.save(output_path)
 
@@ -236,6 +252,16 @@ def main() -> None:
     print(f"cells/scan: {sc.n_cells()}, CFAR floor: {sc.threshold_min_db} dB "
           f"(expected false alarms/scan: {sc.expected_false_alarms_per_scan():.1f})")
     print(f"clutter patches: {len(sc.clutter_patches)}")
+
+    print(f"\n{sc.band()} link budget:")
+    print(f"  f {sc.frequency_hz / 1e9:.2f} GHz (lambda {sc.wavelength_m() * 100:.1f} cm), "
+          f"Pt {sc.tx_peak_power_w / 1e3:.0f} kW, G {sc.antenna_gain_db:.0f} dBi")
+    print(f"  B {sc.bandwidth_hz() / 1e6:.1f} MHz (from {sc.range_resolution_m:.0f} m resolution), "
+          f"NF {sc.noise_figure_db:.0f} dB, system loss {sc.system_loss_db:.1f} dB (solved)")
+    print(f"  PRF {sc.prf_hz:.0f} Hz (unambiguous {sc.unambiguous_range_m() / 1000:.0f} km = range_max), "
+          f"dwell {sc.dwell_time_s() * 1000:.1f} ms -> {sc.pulses_per_dwell():.1f} pulses")
+    print(f"  single-pulse {sc.snr_pulse_ref_db:.2f} dB + integration {sc.integration_gain_db():.2f} dB "
+          f"= {sc.snr_ref_db:.2f} dB operating @ {sc.range_ref_m / 1000:g} km")
 
     # Radar equation, evaluated at the scenario's calibration (see Scenario.snr_mean_lin).
     print(f"\nradar equation ({sc.rcs_ref_m2:g} m^2 target, "

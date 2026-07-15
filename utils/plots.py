@@ -79,7 +79,7 @@ def densest_window(crossings_path: str, window_scans: int = 90) -> int:
 
 def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
                           range_max_km: float, title: str, out_path: str,
-                          horizon_km: float = None, target_s: float = 0.5) -> None:
+                          horizon_km: float = None, target_s: float = 0.6) -> None:
     """PPI scatter of all detections in scans [k0, k0+window_scans), or the
     full day if window_scans is None. horizon_km draws a dotted ring.
     target_s sets the target marker size (smaller = thinner tracks)."""
@@ -91,8 +91,8 @@ def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
                                 lw=1.2, ls=":", zorder=3))
         ax.annotate(f"detection horizon {horizon_km:.0f} km",
                     (0, -horizon_km - 2), color=INK, fontsize=9, ha="center", va="top")
-    for src, color, s, alpha, z in (("noise", C_NOISE, 0.4, 0.25, 2),
-                                    ("clutter", C_CLUTTER, 0.8, 0.8, 4),
+    for src, color, s, alpha, z in (("noise", C_NOISE, 0.5, 0.25, 2),
+                                    ("clutter", C_CLUTTER, 0.5, 0.8, 4),
                                     ("target", C_TARGET, target_s, 0.9, 5)):
         d, n_true = _source_rows(win, src)
         if d.empty:
@@ -122,7 +122,7 @@ def plot_coverage(truth: pd.DataFrame, range_max_km: float, horizon_km: float,
     _ppi_axes(ax, range_max_km)
     for d, color, s, alpha, z, lab in (
         (und, C_NOISE, 0.5, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
-        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
+        (det, C_TARGET, 0.6, 0.9, 4, f"detected ({len(det):,})"),
     ):
         dd, _ = _source_rows(d.assign(source="_"), "_")
         if dd.empty:
@@ -157,8 +157,8 @@ def plot_bscope_coverage(truth: pd.DataFrame, range_max_km: float,
     und, det = _coverage_series(truth)
     fig, ax = plt.subplots(figsize=(10, 5.5))
     for d, color, s, alpha, z, lab in (
-        (und, C_NOISE, 0.4, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
-        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
+        (und, C_NOISE, 0.5, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 0.6, 0.9, 4, f"detected ({len(det):,})"),
     ):
         dd, _ = _source_rows(d.assign(source="_"), "_")
         if dd.empty:
@@ -185,8 +185,8 @@ def plot_rti_coverage(truth: pd.DataFrame, scan_t0: float, scan_period_s: float,
     und, det = _coverage_series(truth)
     fig, ax = plt.subplots(figsize=(10, 5.5))
     for d, color, s, alpha, z, lab in (
-        (und, C_NOISE, 0.4, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
-        (det, C_TARGET, 0.5, 0.9, 4, f"detected ({len(det):,})"),
+        (und, C_NOISE, 0.5, 0.25, 2, f"beyond horizon, not detected ({len(und):,})"),
+        (det, C_TARGET, 0.6, 0.9, 4, f"detected ({len(det):,})"),
     ):
         dd, _ = _source_rows(d.assign(source="_"), "_")
         if dd.empty:
@@ -208,13 +208,13 @@ def plot_rti_coverage(truth: pd.DataFrame, scan_t0: float, scan_period_s: float,
 
 def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
                 range_max_km: float, title: str, out_path: str,
-                target_s: float = 0.5) -> None:
+                target_s: float = 0.6) -> None:
     """B-scope (range vs azimuth) of detections in scans [k0, k0+window_scans),
     or the full day if window_scans is None -- the radar's native frame."""
     win = _select_window(dets, k0, window_scans)
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    for src, color, s, alpha, z in (("noise", C_NOISE, 0.4, 0.25, 2),
-                                    ("clutter", C_CLUTTER, 0.8, 0.85, 4),
+    for src, color, s, alpha, z in (("noise", C_NOISE, 0.5, 0.25, 2),
+                                    ("clutter", C_CLUTTER, 0.5, 0.85, 4),
                                     ("target", C_TARGET, target_s, 0.9, 5)):
         d, n_true = _source_rows(win, src)
         if d.empty:
@@ -236,7 +236,7 @@ def plot_bscope(dets: pd.DataFrame, k0: int, window_scans: int,
 
 def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
              scan_period_s: float, range_max_km: float, title: str,
-             out_path: str, target_s: float = 0.5) -> None:
+             out_path: str, target_s: float = 0.6) -> None:
     """RTI (range vs time, azimuth collapsed) over scans [k0, k0+window_scans).
 
     The classic discrimination view: moving targets slope with their range
@@ -246,8 +246,8 @@ def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
     win = _select_window(dets, k0, window_scans)
     t_start = scan_t0 + (k0 if window_scans is not None else 0) * scan_period_s
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    for src, color, s, alpha, z in (("noise", C_NOISE, 0.4, 0.25, 2),
-                                    ("clutter", C_CLUTTER, 0.8, 0.8, 4),
+    for src, color, s, alpha, z in (("noise", C_NOISE, 0.5, 0.25, 2),
+                                    ("clutter", C_CLUTTER, 0.5, 0.8, 4),
                                     ("target", C_TARGET, target_s, 0.9, 5)):
         d, n_true = _source_rows(win, src)
         if d.empty:

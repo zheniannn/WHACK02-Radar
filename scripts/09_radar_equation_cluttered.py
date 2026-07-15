@@ -8,12 +8,19 @@ Two range limits are reported:
     >= GAP_SCANS consecutive missed scans (a simple track-drop proxy --
     most trackers coast only a couple of scans before deleting a track).
 
+Finally it renders the 0 dB CFAR illustration (figure 8): a full 4-day
+stage 9 at 0 dB is infeasible (~117k false alarms/scan), so only the
+feasible subset is made -- an exact full-day max-range from the truth
+detection pattern, plus one 15-min window where the false-alarm flood
+buries the targets (PPI + RTI). See zero_db_illustration().
+
 Usage:
     python scripts/09_radar_equation_cluttered.py
     python scripts/09_radar_equation_cluttered.py --seed 7 --output-dir mc_run_7/
 """
 
 import argparse
+import dataclasses
 import json
 import os
 import sys
@@ -26,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.beam_crossings import ensure_beam_crossings
 from utils.io import get_beam_crossings_dir, get_plot_dir, get_scenario_path, get_stage_dir, get_trajectories_dir
-from utils.measurements import MeasurementConfig, run_days
+from utils.measurements import MeasurementConfig, run_days, _wrap_az
 from utils.plots import (
     densest_window,
     per_track_drop_table,
@@ -40,6 +47,8 @@ from utils.scenario import Scenario
 PLOT_DAY_INDEX = 0
 GAP_SCANS = 3          # consecutive misses treated as a broken track
 MIN_CROSSINGS = 30     # only tracks with >= this many crossings enter the drop analysis
+ZERO_DB_FLOOR = 0.0        # CFAR floor for the folded 0 dB illustration (figure 8)
+ZERO_DB_WINDOW_SCANS = 90  # 15-min window (90 x 10 s) for the 0 dB PPI + RTI
 
 
 def parse_args():
@@ -51,9 +60,9 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=None,
                         help="Override the scenario seed (Monte-Carlo repetitions).")
     parser.add_argument("--threshold-min-db", type=float, default=None,
-                        help="Override the scenario CFAR floor (WARNING: below ~6 dB the "
-                             "false-alarm count explodes; use scripts/09b_zero_db_window.py "
-                             "for the 0 dB illustration).")
+                        help="Override the scenario CFAR floor for the main run (WARNING: "
+                             "below ~6 dB the false-alarm count explodes; the 0 dB case is "
+                             "always illustrated separately as figure 8).")
     return parser.parse_args()
 
 
@@ -71,6 +80,115 @@ def _crossing_50(x_km: np.ndarray, y: np.ndarray, direction: str = "down") -> fl
             f = (0.5 - y[i - 1]) / (y[i] - y[i - 1])
             return float(x_km[i - 1] + f * (x_km[i] - x_km[i - 1]))
     return float("nan")
+
+
+def zero_db_illustration(sc, day_files, scan_grid) -> None:
+    """Figure 8: the 0 dB CFAR floor. A full 4-day stage 9 at 0 dB is
+    infeasible -- Pfa = e^-1 = 0.37/cell is ~117k false alarms/scan
+    (~1 billion/day) -- so this renders only what 0 dB CAN yield: an exact
+    full-day max-range from the truth detection pattern (no false alarms
+    needed), and one 15-min window where the false-alarm flood buries the
+    targets (PPI + RTI), the saturated scope that shows why single-scan
+    detection fails at 0 dB. Uses a 0 dB copy of the scenario so the Pd
+    theory curve and false-alarm count are evaluated at that floor."""
+    sc0 = dataclasses.replace(sc, threshold_min_db=ZERO_DB_FLOOR)
+    tau = sc0.threshold_lin()
+    horizon_km = sc0.range_ref_m * (10 ** (sc0.snr_ref_db / 10) / tau) ** 0.25 / 1000
+    fa_per_scan = sc0.expected_false_alarms_per_scan()
+    pdir = get_plot_dir()
+    rng = np.random.default_rng(sc0.seed)
+    print("\n" + "=" * 70)
+    print("0 dB CFAR ILLUSTRATION (figure 8)")
+    print("=" * 70)
+    print(f"  horizon {horizon_km:.0f} km, {fa_per_scan:,.0f} false alarms/scan")
+
+    # max_range: truth detections at 0 dB, all days (no false alarms needed).
+    truth_frames = []
+    for date, _ in day_files:
+        cx = pd.read_csv(os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv"))
+        snr = sc0.snr_mean_lin(cx["true_range_m"].to_numpy())
+        z = rng.exponential(1.0 + snr)
+        truth_frames.append(pd.DataFrame({
+            "trajectory_id": cx["trajectory_id"], "scan_idx": cx["scan_idx"],
+            "true_range_m": cx["true_range_m"], "detected": z >= tau}))
+    truth = pd.concat(truth_frames, ignore_index=True)
+
+    edges = np.linspace(sc0.range_min_m, sc0.range_max_m, 17)
+    mid = (edges[:-1] + edges[1:]) / 2000
+    pd_emp = np.array([truth.loc[truth["true_range_m"].between(lo, hi), "detected"].mean()
+                       for lo, hi in zip(edges[:-1], edges[1:])])
+    r50 = _crossing_50(mid, pd_emp)
+    tt = per_track_drop_table(truth, MIN_CROSSINGS, GAP_SCANS)
+    mids, fracs = [], []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        sel = tt[(tt["r_median_m"] >= lo) & (tt["r_median_m"] < hi)]
+        if len(sel) >= 5:
+            mids.append((lo + hi) / 2000)
+            fracs.append(sel["dropped"].mean())
+    drop50 = _crossing_50(np.array(mids), np.array(fracs), "up")
+    print(f"  detection limit {r50:.1f} km, tracking limit {drop50:.1f} km (0 dB)")
+    plot_max_range(truth, tt, sc0, r50, drop50, GAP_SCANS,
+                   os.path.join(pdir, "8_0db_max_range.png"))
+
+    # One 15-min window with the full false-alarm flood, for PPI + RTI.
+    date = day_files[PLOT_DAY_INDEX][0]
+    cx_path = os.path.join(get_beam_crossings_dir(), f"beam_crossings_{date}.csv")
+    k0 = densest_window(cx_path, ZERO_DB_WINDOW_SCANS)
+    k1 = k0 + ZERO_DB_WINDOW_SCANS
+    scan_t0, _ = scan_grid[date]
+    scan_times = scan_t0 + sc0.scan_period_s * np.arange(k0, k1)
+
+    cx = pd.read_csv(cx_path)
+    cx = cx[(cx["scan_idx"] >= k0) & (cx["scan_idx"] < k1)]
+    zt = rng.exponential(1.0 + sc0.snr_mean_lin(cx["true_range_m"].to_numpy()))
+    det = cx[zt >= tau]
+    frames = [pd.DataFrame({
+        "scan_idx": det["scan_idx"].to_numpy(),
+        "t": scan_t0 + det["scan_idx"].to_numpy() * sc0.scan_period_s
+             + det["true_azimuth_deg"].to_numpy() / 360 * sc0.scan_period_s,
+        "range_m": det["true_range_m"].to_numpy(),
+        "azimuth_deg": det["true_azimuth_deg"].to_numpy(), "source": "target"})]
+
+    n_fa = rng.poisson(fa_per_scan * ZERO_DB_WINDOW_SCANS)
+    fa_scan = rng.integers(k0, k1, n_fa)
+    fa_az = rng.uniform(0, 360, n_fa)
+    frames.append(pd.DataFrame({
+        "scan_idx": fa_scan,
+        "t": scan_t0 + fa_scan * sc0.scan_period_s + fa_az / 360 * sc0.scan_period_s,
+        "range_m": rng.uniform(sc0.range_min_m, sc0.range_max_m, n_fa),
+        "azimuth_deg": fa_az, "source": "noise"}))
+
+    clutter_lin = 10 ** (sc0.clutter_snr_db / 10)
+    for p in sc0.clutter_patches:
+        zc = rng.exponential(1 + clutter_lin, ZERO_DB_WINDOW_SCANS)
+        hit = np.where(zc >= tau)[0]
+        if hit.size:
+            frames.append(pd.DataFrame({
+                "scan_idx": k0 + hit,
+                "t": scan_times[hit] + p["azimuth_deg"] / 360 * sc0.scan_period_s,
+                "range_m": p["range_m"],
+                "azimuth_deg": _wrap_az(p["azimuth_deg"] + rng.normal(0, sc0.sigma_azimuth_deg, hit.size)),
+                "source": "clutter"}))
+    dets = pd.concat(frames, ignore_index=True)
+    print(f"  window: {int((dets['source'] == 'target').sum()):,} targets, "
+          f"{int((dets['source'] == 'noise').sum()):,} false alarms")
+
+    plot_detection_window(
+        dets, k0, ZERO_DB_WINDOW_SCANS, sc0.range_max_m / 1000,
+        f"Stage 9 at 0 dB CFAR floor -- one 15-min window ({date})\n"
+        f"targets reach {horizon_km:.0f} km but drown in ~{fa_per_scan / 1000:.0f}k false alarms/scan",
+        os.path.join(pdir, "8_0db_PPI.png"), horizon_km=horizon_km)
+    plot_bscope(
+        dets, k0, ZERO_DB_WINDOW_SCANS, sc0.range_max_m / 1000,
+        f"Stage 9 B-scope at 0 dB CFAR floor -- 15-min window ({date})\n"
+        "targets and clutter buried in a near-solid false-alarm field",
+        os.path.join(pdir, "8_0db_bscope.png"))
+    plot_rti(
+        dets, k0, ZERO_DB_WINDOW_SCANS, scan_t0, sc0.scan_period_s, sc0.range_max_m / 1000,
+        f"Stage 9 RTI at 0 dB CFAR floor -- 15-min window ({date})\n"
+        "targets slope through a near-solid false-alarm field",
+        os.path.join(pdir, "8_0db_RTI.png"))
+    print(f"  0 dB figures -> {pdir} (8_0db_max_range, _PPI, _bscope, _RTI)")
 
 
 def main() -> None:
@@ -168,20 +286,24 @@ def main() -> None:
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 9 PPI — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "full day like stages 6-8; distant tracks fade and contamination is on",
-        os.path.join(get_plot_dir(), f"stage09_PPI_{date}.png"))
+        os.path.join(get_plot_dir(), f"7_PPI_{date}.png"))
     plot_bscope(
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "the radar's native frame: targets drift, clutter pins to a fixed cell",
-        os.path.join(get_plot_dir(), f"stage09_bscope_{date}.png"))
+        os.path.join(get_plot_dir(), f"7_bscope_{date}.png"))
     plot_rti(
         dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 9 RTI — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "targets slope and fade with range; clutter draws flat lines; noise speckles",
-        os.path.join(get_plot_dir(), f"stage09_RTI_{date}.png"))
+        os.path.join(get_plot_dir(), f"7_RTI_{date}.png"))
     plot_max_range(truth, track_table, sc, r50_emp, drop50, GAP_SCANS,
-                   os.path.join(get_plot_dir(), "stage09_max_range.png"))
+                   os.path.join(get_plot_dir(), "7_max_range.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI, max-range)")
+
+    # Free the main-run frames before the 0 dB window builds its own (bounds peak memory).
+    del dets0, truth, track_table, results
+    zero_db_illustration(sc, day_files, scan_grid)
 
     print("\n09_radar_equation_cluttered completed successfully.")
 
