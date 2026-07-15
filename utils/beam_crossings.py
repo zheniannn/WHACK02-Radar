@@ -1,11 +1,12 @@
-"""Stage 6 rules: deterministic radar-truth geometry (no randomness).
+"""Deterministic beam-crossing geometry (radar truth, no randomness),
+cached and shared by stages 6-9.
 
 For each trajectory and each scan, compute when the rotating beam crosses
 the target, the true (slant range, azimuth, elevation) at that instant, the
 coverage gate, and the mean SNR from the scenario's radar equation. Nothing
 stochastic happens here -- detection draws, measurement noise, false alarms,
-and clutter belong to stage 7, so this stage runs once and stage 7 can be
-re-run cheaply (new seeds, new noise settings) on top of it.
+and clutter belong to the measurement stages (7 and 9), so the geometry is
+computed once and those stages re-run cheaply on top of it.
 
 Pipeline per day (see process_day):
   scan epochs on a fixed scan_period_s grid
@@ -24,7 +25,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from .geometry import enu_from_geodetic, polar_from_enu
+from .geometry import EARTH_RADIUS_M, enu_from_geodetic, polar_from_enu
 from .scenario import Scenario
 
 INPUT_PREFIX = "states_"
@@ -53,7 +54,7 @@ def discover_input_files(input_dir: str) -> List[Tuple[str, str]]:
 def _bbox_prefilter(df: pd.DataFrame, sc: Scenario) -> pd.DataFrame:
     """Cheap lat/lon box cut before exact geometry: keeps only rows that can
     possibly be within range_max_m of the site (15% slack)."""
-    half_deg = np.degrees(sc.range_max_m * 1.15 / 6_371_000.0)
+    half_deg = np.degrees(sc.range_max_m * 1.15 / EARTH_RADIUS_M)
     lat_ok = df["lat_interp"].sub(sc.site_lat_deg).abs() <= half_deg
     lon_ok = df["lon_interp"].sub(sc.site_lon_deg).abs() <= half_deg / max(
         np.cos(np.radians(sc.site_lat_deg)), 0.2)
@@ -166,7 +167,7 @@ def ensure_beam_crossings(traj_dir: str, cache_dir: str, sc: Scenario
     """Compute the beam-crossing cache if missing or stale, else reuse it.
 
     Returns (sorted (date, crossings_path) pairs, {date: (scan_t0, n_scans)}).
-    Geometry is deterministic, so the cache is shared by stages 6-8; a
+    Geometry is deterministic, so the cache is shared by stages 6-9; a
     fingerprint sidecar invalidates it when the scenario's geometry changes.
     """
     day_files = discover_input_files(traj_dir)
@@ -187,7 +188,7 @@ def ensure_beam_crossings(traj_dir: str, cache_dir: str, sc: Scenario
         print(f"beam-crossing cache is current: {cache_dir}")
         s = pd.read_csv(summary_path)
     else:
-        print("computing beam crossings (deterministic, cached for stages 6-8)...")
+        print("computing beam crossings (deterministic, cached for stages 6-9)...")
         os.makedirs(cache_dir, exist_ok=True)
         results = [process_day(d, p, cache_dir, sc) for d, p in day_files]
         s = pd.DataFrame([{k: v for k, v in r.items() if not k.startswith("_")} for r in results])

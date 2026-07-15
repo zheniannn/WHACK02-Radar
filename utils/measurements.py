@@ -1,12 +1,13 @@
-"""Measurement generation shared by stages 6-8: each stage is one
+"""Measurement generation shared by stages 6-9: each stage is one
 MeasurementConfig applied to the shared beam-crossing geometry.
 
-  Stage 6: fixed SNR, no fluctuation, no measurement noise, no false
-           alarms, no clutter -- the pure radar view of the trajectories.
+  Stage 6: fixed SNR, clean -- no fluctuation/noise/false alarms/clutter,
+           the pure radar view of the trajectories.
   Stage 7: fixed SNR + Swerling fluctuation + measurement noise + false
            alarms + clutter -- stochasticity at range-independent SNR.
-  Stage 8: radar-equation SNR + everything -- full physics; distant
-           targets fade and the maximum usable range emerges.
+  Stage 8: radar-equation SNR, clean -- the deterministic detection horizon.
+  Stage 9: radar-equation SNR + everything -- full physics; distant targets
+           fade and the maximum usable range emerges.
 
 Detection statistics (square-law detector, exponential noise, Swerling 1):
   Pfa(tau)      = exp(-tau_lin)
@@ -16,12 +17,11 @@ target; "snr_db" in the outputs is 10*log10(z). Measurements are recorded
 down to threshold_min_db, so any CFAR threshold >= that floor can be
 applied post-hoc by filtering on snr_db.
 
-With fluctuation disabled (stage 6) z is the mean SNR itself, so detection
-is deterministic and snr_db is exact.
+With fluctuation disabled (stages 6 and 8) z is the mean SNR itself, so
+detection is deterministic and snr_db is exact.
 """
 
 import os
-import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -29,8 +29,6 @@ import numpy as np
 import pandas as pd
 
 from .scenario import Scenario
-
-DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 DETECTION_COLUMNS = [
     "date", "scan_idx", "t", "range_m", "azimuth_deg", "snr_db", "source",

@@ -1,9 +1,9 @@
-"""Shared plotting for stages 6-8 (PNG, light surface).
+"""Shared plotting for stages 6-9 (PNG, light surface).
 
 Colors follow the project's fixed entity mapping: targets blue, clutter
 yellow (relieved by direct labels/legend), noise a deliberately recessive
-gray. One window of scans is chosen deterministically from the beam
-crossings so the stage 6/7/8 figures are directly comparable.
+gray. Marker sizes are uniform across stages (noise/clutter 0.5, target 0.6)
+so the stage 6/7/8/9 figures are directly comparable.
 """
 
 import os
@@ -269,74 +269,6 @@ def plot_rti(dets: pd.DataFrame, k0: int, window_scans: int, scan_t0: float,
     plt.close(fig)
 
 
-def plot_ascope(sc, out_path: str, threshold_db: float = None) -> None:
-    """A-scope: echo amplitude vs range along ONE beam, one scan --
-    synthesized from the scenario's own statistics (Exp(1) noise per range
-    cell). Two illustrative targets are shown at their MEAN echo power (a
-    near one and a marginal far one) plus one clutter patch, with the CFAR
-    floor at threshold_db (default sc.threshold_min_db) drawn. This is the
-    picture in which 'lowering the CFAR threshold in dB' is defined.
-
-    The noise realisation is seeded from sc.seed, so calling this at two
-    thresholds yields identical noise -- only the floor line and the number
-    of noise crossings above it differ, which is exactly the comparison.
-    """
-    threshold_db = sc.threshold_min_db if threshold_db is None else threshold_db
-    rng = np.random.default_rng(sc.seed)
-    n = int((sc.range_max_m - sc.range_min_m) / sc.range_resolution_m)
-    r_km = (sc.range_min_m + sc.range_resolution_m * (np.arange(n) + 0.5)) / 1000
-    amp = rng.exponential(1.0, n)                       # noise power, mean 1 (0 dB)
-
-    # Mean-level echoes (no cherry-picked fluctuation draws): a strong near
-    # target, a marginal far target, and a clutter patch.
-    marks = []
-    for label, rr_km, snr_lin in (
-        ("target", 25.0, float(sc.snr_mean_lin(25_000.0))),
-        ("target", 68.0, float(sc.snr_mean_lin(68_000.0))),
-        ("clutter", 15.0, 10.0 ** (sc.clutter_snr_db / 10.0)),
-    ):
-        i = int(np.argmin(np.abs(r_km - rr_km)))
-        amp[i] = 1.0 + snr_lin
-        marks.append((label, r_km[i], 10 * np.log10(amp[i])))
-
-    amp_db = np.maximum(10 * np.log10(amp), -20.0)      # clip deep noise nulls for display
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(r_km, amp_db, color=MUTED, lw=0.7, zorder=2)
-    ax.axhline(threshold_db, color=INK, lw=1.4, ls="--", zorder=4)
-    ax.annotate(f"CFAR floor {threshold_db:g} dB", (2, threshold_db + 0.7),
-                color=INK, fontsize=9)
-    ax.axhline(13.0, color=INK2, lw=1.2, ls=":", zorder=4)
-    ax.annotate("conventional ~13 dB", (44, 13.7), color=INK2, fontsize=9)
-
-    for label, rr, db in marks:
-        color = C_TARGET if label == "target" else C_CLUTTER
-        ax.plot([rr], [db], marker="o", ms=7, color=color, zorder=5)
-        dx = -3.5 if label == "clutter" else 0.0     # keep the clutter label clear of the 13 dB line text
-        ax.annotate(f"{label} {rr:.0f} km\n{db:.1f} dB", (rr + dx, db + 1.2),
-                    color=color, fontsize=9, ha="center")
-
-    fa = (amp_db >= threshold_db) & ~np.isin(
-        np.arange(n), [int(np.argmin(np.abs(r_km - m[1]))) for m in marks])
-    if fa.any():
-        ax.plot(r_km[fa], amp_db[fa], "o", ms=5, color=C_NOISE, zorder=5,
-                label=f"noise false alarms: {int(fa.sum())}")
-        leg = ax.legend(loc="upper right", frameon=False, fontsize=9)
-        for t in leg.get_texts():
-            t.set_color(INK2)
-
-    ax.set_xlim(0, sc.range_max_m / 1000 * 1.02); ax.set_ylim(-20, 30)
-    ax.set_xlabel("range (km)"); ax.set_ylabel("received power over mean noise (dB)")
-    ax.set_title(f"A-scope at a {threshold_db:g} dB CFAR floor -- one beam, one scan "
-                 "(targets at mean echo power)\n"
-                 "lowering the floor keeps more targets but admits more noise crossings",
-                 color=INK)
-    fig.tight_layout()
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
-
-
 def longest_miss_run(detected: np.ndarray) -> int:
     """Length of the longest run of consecutive False values."""
     x = (~detected.astype(bool)).astype(int)
@@ -349,7 +281,11 @@ def longest_miss_run(detected: np.ndarray) -> int:
 def per_track_drop_table(truth_all: pd.DataFrame, min_crossings: int = 30,
                          gap_scans: int = 3) -> pd.DataFrame:
     """One row per trajectory: median range and whether it contains a miss
-    gap of >= gap_scans consecutive scans (a simple 'track dropped' proxy)."""
+    gap of >= gap_scans consecutive scans (a simple 'track dropped' proxy).
+
+    truth_all may span multiple days; grouping by trajectory_id is safe only
+    because the id embeds a per-flight epoch, so it is globally unique.
+    """
     rows = []
     for tid, g in truth_all.sort_values(["trajectory_id", "scan_idx"]).groupby("trajectory_id"):
         det = g["detected"].to_numpy()

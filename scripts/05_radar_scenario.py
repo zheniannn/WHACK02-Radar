@@ -14,7 +14,7 @@ Outputs:
       echo power vs range across the whole flight (mean radar-equation curve
       + per-scan Swerling draws, detected/missed) against the Exp(1) noise
       floor, at each CFAR floor.
-  3_flight.png
+  3_flight_ppi.png
       the aircraft's ground track on a PPI, blue inside the detection
       horizon and grey beyond.
 
@@ -148,7 +148,8 @@ def plot_flight_track(sc, a, out_path, floor_db=8.0):
     r = a["true_range_m"].to_numpy() / 1000
     e, n = r * np.sin(az), r * np.cos(az)
     snr_lin = 10 ** (a["snr_mean_db"].to_numpy() / 10)
-    inside = 10 * np.log10(1 + snr_lin) >= floor_db
+    # SNR >= floor, matching the deterministic horizon ring below (and stage 8).
+    inside = 10 * np.log10(snr_lin) >= floor_db
     horizon = sc.range_ref_m * (10 ** (sc.snr_ref_db / 10) / sc.threshold_lin(floor_db)) ** 0.25 / 1000
 
     fig, ax = plt.subplots(figsize=(8.5, 8.5))

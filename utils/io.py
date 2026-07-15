@@ -1,4 +1,4 @@
-"""Filesystem path helpers shared by both radar stages.
+"""Filesystem path helpers shared by every radar stage.
 
 Same conventions as WHACK01-Preprocessing: paths resolve from the
 repository's own location, and the data root defaults to a `data/`
@@ -37,12 +37,12 @@ def get_scenario_path() -> str:
 
 
 def get_beam_crossings_dir() -> str:
-    """Deterministic beam-crossing cache, shared by stages 6-8."""
+    """Deterministic beam-crossing cache, shared by stages 6-9."""
     return os.path.join(get_radar_dir(), "beam_crossings")
 
 
 def get_stage_dir(stage: int) -> str:
-    """Per-day truth/detection CSVs for one measurement stage (6, 7, or 8)."""
+    """Per-day truth/detection CSVs for one measurement stage (6-9)."""
     return os.path.join(get_radar_dir(), f"stage{stage:02d}")
 
 

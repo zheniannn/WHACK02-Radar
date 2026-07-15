@@ -5,7 +5,7 @@ ground-truth trajectories (maximising usable tracks per scan), the site
 elevation is estimated from the lowest flight altitudes seen nearby (a
 proxy for local terrain, since no DEM is used), and the full radar
 parameter set -- coverage, accuracy, SNR model, CFAR floor, clutter map --
-is frozen into scenario.json so stage 6 runs are reproducible.
+is frozen into scenario.json so the later stages are reproducible.
 """
 
 import json
@@ -26,7 +26,7 @@ SITE_ALT_MARGIN_M = 150.0       # subtracted from the proxy (aircraft fly above 
 
 @dataclass
 class Scenario:
-    """Everything stage 6 needs, frozen at stage-5 time."""
+    """Everything the later stages need, frozen at stage-5 time."""
     # Site (chosen from the data)
     site_lat_deg: float = 0.0
     site_lon_deg: float = 0.0
