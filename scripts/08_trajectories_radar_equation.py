@@ -106,7 +106,7 @@ def main() -> None:
         truth0, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 8 RTI — truth vs detected ({date}, full day)\n"
         f"detected inside the {horizon_m/1000:.0f} km horizon; grey aircraft are there but unseen",
-        os.path.join(get_plot_dir(), f"stage08_rti_{date}.png"))
+        os.path.join(get_plot_dir(), f"stage08_RTI_{date}.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n08_trajectories_radar_equation completed successfully.")

@@ -87,7 +87,7 @@ def main() -> None:
         dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 6 RTI — clean, fixed SNR {sc.snr_ref_db:g} dB ({date}, full day)\n"
         "target tracks only; the clean 'before' to stage 7's contaminated frame",
-        os.path.join(get_plot_dir(), f"stage06_rti_{date}.png"))
+        os.path.join(get_plot_dir(), f"stage06_RTI_{date}.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n06_trajectories_clean completed successfully.")

@@ -178,7 +178,7 @@ def main() -> None:
         dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 9 RTI — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "targets slope and fade with range; clutter draws flat lines; noise speckles",
-        os.path.join(get_plot_dir(), f"stage09_rti_{date}.png"))
+        os.path.join(get_plot_dir(), f"stage09_RTI_{date}.png"))
     plot_max_range(truth, track_table, sc, r50_emp, drop50, GAP_SCANS,
                    os.path.join(get_plot_dir(), "stage09_max_range.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI, max-range)")

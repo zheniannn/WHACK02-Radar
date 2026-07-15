@@ -112,7 +112,7 @@ def main() -> None:
         dets0, k0, None, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 7 RTI — fixed SNR {sc.snr_ref_db:g} dB with clutter and noise ({date}, full day)\n"
         "targets slope with range rate; clutter draws flat lines; noise speckles",
-        os.path.join(get_plot_dir(), f"stage07_rti_{date}.png"))
+        os.path.join(get_plot_dir(), f"stage07_RTI_{date}.png"))
     print(f"plots written to: {get_plot_dir()} (PPI, B-scope, RTI)")
 
     print("\n07_trajectories_cluttered completed successfully.")

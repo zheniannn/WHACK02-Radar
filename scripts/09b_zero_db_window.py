@@ -136,8 +136,8 @@ def main() -> None:
         dets, k0, WINDOW_SCANS, scan_t0, sc.scan_period_s, sc.range_max_m / 1000,
         f"Stage 9 RTI at 0 dB CFAR floor -- 15-min window ({DATE})\n"
         "targets slope through a near-solid false-alarm field",
-        os.path.join(pdir, "stage09_0db_rti.png"))
-    print(f"plots -> {pdir} (stage09_0db_max_range, _trajectories, _rti)")
+        os.path.join(pdir, "stage09_0db_RTI.png"))
+    print(f"plots -> {pdir} (stage09_0db_max_range, _trajectories, _RTI)")
 
 
 if __name__ == "__main__":
