@@ -282,11 +282,13 @@ def main() -> None:
     dets0 = pd.read_csv(os.path.join(output_dir, f"radar_detections_{date}.csv"))
     scan_t0, _ = scan_grid[date]
     k0 = 0   # full day
+    # deterministic detection horizon (mean SNR = floor), same ring as stages 8/8-0dB
+    horizon_km = sc.range_ref_m * (10 ** (sc.snr_ref_db / 10) / sc.threshold_lin()) ** 0.25 / 1000
     plot_detection_window(
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 9 PPI — radar-equation SNR with clutter and noise ({date}, full day)\n"
         "full day like stages 6-8; distant tracks fade and contamination is on",
-        os.path.join(get_plot_dir(), f"7_PPI_{date}.png"))
+        os.path.join(get_plot_dir(), f"7_PPI_{date}.png"), horizon_km=horizon_km)
     plot_bscope(
         dets0, k0, None, sc.range_max_m / 1000,
         f"Stage 9 B-scope — radar-equation SNR with clutter and noise ({date}, full day)\n"
