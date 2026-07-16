@@ -62,9 +62,12 @@ A 2D fan-beam **S-band** surveillance radar sited at the densest traffic cell in
 
 The 15 dB operating anchor is **derived from an explicit link budget, not asserted**: single-pulse SNR from `Pt·G²·λ²·σ / ((4π)³·R⁴·kT₀BF·L)` with stated hardware (15 kW, 34 dBi, B = 1 MHz from the range resolution, NF = 4 dB, solved system loss ≈ 9.3 dB) gives ~0 dB at 50 km for 1 m²; the PRF (749 Hz, unambiguous at 200 km) and beam dwell (41.7 ms) give **N ≈ 31 pulses/dwell** and a coherent integration gain of ≈ 15 dB. Detection statistics are Swerling-1: `Pfa(τ) = e^(−τ)`, `Pd = Pfa^(1/(1+SNR))`. Everything is frozen into `scenario.json` with the RNG seed — all later stages are reproducible functions of that file.
 
-Stage 5 also renders data-derived detection figures from one real flight (N118AT, a Piper Seminole flying 8 → 200 km outbound). The echo fades along the real track, dipping below the CFAR floor near the horizon:
+Stage 5 also renders data-derived detection figures from one real flight (N118AT, a Piper Seminole flying 8 → 200 km outbound). Dropping the CFAR floor from 8 dB to 0 dB keeps the fading echo "detectable" much farther out — but floods the scope with noise crossings (≈9 → ≈1,840 of 5,000 cells). The range-vs-false-alarm trade, on one real flight:
 
-![Echo vs distance](docs/figures/3_ascope_8db_distance.png)
+<table><tr>
+<td width="50%" align="center"><b>8 dB CFAR floor</b><br><img src="docs/figures/3_ascope_8db_distance.png" alt="8 dB floor"></td>
+<td width="50%" align="center"><b>0 dB CFAR floor</b><br><img src="docs/figures/3_ascope_0db_distance.png" alt="0 dB floor"></td>
+</tr></table>
 
 ![Flight track](docs/figures/3_flight_ppi.png)
 
