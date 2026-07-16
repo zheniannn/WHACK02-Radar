@@ -51,7 +51,7 @@ python scripts/06_trajectories_clean.py
 python scripts/07_trajectories_cluttered.py
 python scripts/08_trajectories_radar_equation.py
 python scripts/09_radar_equation_cluttered.py
-python scripts/10_radar_scene_days.py           # optional: per-day scene figures
+python scripts/radar_scene_days.py           # optional: per-day scene figures
 ```
 
 Stage 5 builds a deterministic **beam-crossing cache** (when the rotating beam actually hits each aircraft, solved by fixed-point iteration); stages 6–9 share it, and a fingerprint sidecar recomputes it automatically if the scenario geometry changes. Every stage ends with a **validation gate** (Pd vs the Swerling-1 closed form, false-alarm rate within 5σ, measurement σs reproduced) that raises on failure.
@@ -120,7 +120,7 @@ scripts/
 ├── 07_trajectories_cluttered.py       # fixed SNR + contamination
 ├── 08_trajectories_radar_equation.py  # radar-equation SNR, clean (the horizon)
 ├── 09_radar_equation_cluttered.py     # full physics + max-range + 0 dB illustration
-└── 10_radar_scene_days.py             # ground-truth scene figures per day
+└── radar_scene_days.py                # ground-truth scene figures (auxiliary, un-numbered)
 utils/
 ├── io.py                # all filesystem paths
 ├── geometry.py          # geodetic -> ENU -> range/azimuth/elevation
