@@ -79,17 +79,18 @@ def densest_window(crossings_path: str, window_scans: int = 90) -> int:
 
 def plot_detection_window(dets: pd.DataFrame, k0: int, window_scans: int,
                           range_max_km: float, title: str, out_path: str,
-                          horizon_km: float = None, target_s: float = 0.6) -> None:
+                          horizon_km: float = None, target_s: float = 0.6,
+                          ring_label: str = "detection horizon") -> None:
     """PPI scatter of all detections in scans [k0, k0+window_scans), or the
-    full day if window_scans is None. horizon_km draws a dotted ring.
-    target_s sets the target marker size (smaller = thinner tracks)."""
+    full day if window_scans is None. horizon_km draws a dotted range ring
+    (labelled by ring_label). target_s sets the target marker size."""
     win = _select_window(dets, k0, window_scans)
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
     _ppi_axes(ax, range_max_km)
     if horizon_km is not None:
         ax.add_patch(plt.Circle((0, 0), horizon_km, fill=False, color=INK,
                                 lw=1.2, ls=":", zorder=3))
-        ax.annotate(f"detection horizon {horizon_km:.0f} km",
+        ax.annotate(f"{ring_label} {horizon_km:.0f} km",
                     (0, -horizon_km - 2), color=INK, fontsize=9, ha="center", va="top")
     for src, color, s, alpha, z in (("noise", C_NOISE, 0.5, 0.25, 2),
                                     ("clutter", C_CLUTTER, 0.5, 0.8, 4),
